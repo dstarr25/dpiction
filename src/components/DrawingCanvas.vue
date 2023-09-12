@@ -1,6 +1,6 @@
 <template>
     <div class="canvas-container">
-        <canvas ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" width="800" height="600"></canvas>
+        <canvas ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" width="200" height="150"></canvas>
         <div class="palette">
             <div
                 v-for="(color, index) in colorOptions"
@@ -24,18 +24,21 @@
 </template>
 
 <script lang="ts">
+import type { JoinData, SocketMessage } from '../types'
+import { MessageTypes } from '../types'
 const rectsizeToScale: {[key: number]: number} = {
-    20: 0.72,
-    10: 0.5,
-    5: 0.15,
-    8: 0.4,
-    12: 0.6,
-    15: 0.69,
-    17: 0.71
+    1: 0.4,
+    3: 0.5,
+    5: 0.6,
+    7: 0.57,
+    9: .6
 };
+const socket = new WebSocket("ws://localhost:3000")
+
 export default {
     data() {
         return {
+            socket,
             colorOptions: ['black', 'white', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'],
             selectedColor: 'black',
             isDrawing: false,
@@ -43,20 +46,68 @@ export default {
             lastX: 0,
             lastY: 0,
             sliderVal: "0",
-            lineWidth: 5
+            lineWidth: 1,
         };
     },
     mounted() {
         // Use type assertion to specify the type of this.$refs.canvas
-        this.context = (this.$refs.canvas as HTMLCanvasElement).getContext('2d');
+        this.context = (this.$refs.canvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true });
         if (this.context) {
 
+            // setup canvas to be white and default color black, linewidth 1 etc.
             this.context.fillStyle = 'white';
-            this.context?.fillRect(0, 0, (this.$refs.canvas as HTMLCanvasElement).width, (this.$refs.canvas as HTMLCanvasElement).width);
+            this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
             this.context.fillStyle = this.selectedColor;
             this.context.strokeStyle = this.selectedColor; 
             this.context.lineWidth = this.lineWidth; 
             this.updateCursor();
+
+            // add socket listeners tbh
+            this.socket.addEventListener("message", event => {
+                // if (!this.context) return;
+
+                // console.log(`Received message: ${event.data}`) 
+
+                // const messageData = JSON.parse(event.data)
+                // const width = messageData.width;
+                // const height = messageData.height;
+                // const pixelData = messageData.pixels;
+
+                // // Create an empty ImageData object with the same dimensions
+                // const imageData = this.context.createImageData(width, height);
+
+                // // Set the pixel data for the canvas
+                // for (let i = 0; i < pixelData.length; i += 4) {
+                //     const r = pixelData[i];
+                //     const g = pixelData[i + 1];
+                //     const b = pixelData[i + 2];
+                //     const a = pixelData[i + 3];
+
+                //     // Set pixel values in the ImageData object
+                //     imageData.data[i] = r;
+                //     imageData.data[i + 1] = g;
+                //     imageData.data[i + 2] = b;
+                //     imageData.data[i + 3] = a;
+                // }
+
+                // // Put the ImageData on the canvas
+                // this.context.putImageData(imageData, 0, 0);
+                console.log('received message: ', event.data)
+            })
+            this.socket.addEventListener("open", () => {
+                console.log("WebSocket connection opened.")
+                const socketMessage = {
+                    action: MessageTypes.JOIN,
+                    data: {
+                        name: "devon",
+                        gameId: "banana",
+                    } as JoinData
+                } as SocketMessage
+
+                console.log('sending join message...')
+                this.socket.send(JSON.stringify(socketMessage))
+                // Now that the connection is open, you can send a message.
+            });
         }
     },
     methods: {
@@ -65,8 +116,8 @@ export default {
             if (this.context) {
                 this.context.beginPath();
                 this.context.moveTo(
-                    event.clientX - this.context.lineWidth / 2 - (this.$refs.canvas as HTMLCanvasElement).getBoundingClientRect().left,
-                    event.clientY - this.context.lineWidth / 2 - (this.$refs.canvas as HTMLCanvasElement).getBoundingClientRect().top
+                    event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
+                    event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
                 );
             }
         },
@@ -74,8 +125,8 @@ export default {
             if (!this.isDrawing) return;
             if (this.context) {
                 this.context.lineTo(
-                    event.clientX - this.context.lineWidth / 2 - (this.$refs.canvas as HTMLCanvasElement).getBoundingClientRect().left,
-                    event.clientY - this.context.lineWidth / 2 - (this.$refs.canvas as HTMLCanvasElement).getBoundingClientRect().top
+                    event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
+                    event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
                 );
                 this.context.stroke();
             }
@@ -84,6 +135,7 @@ export default {
             this.isDrawing = false;
             if (this.context) {
                 this.context.closePath();
+                this.sendCanvasToSocket();
             }
         },
         selectColor(color: string) {
@@ -98,20 +150,22 @@ export default {
         updateCursor() {
             // return;
             if (!this.context) return;
-            const canvas = this.$refs.canvas as HTMLCanvasElement;
-            const rectSize = this.context.lineWidth;
-            const scale = rectsizeToScale[rectSize]; // (20, 0.72) (10, 0.5) (5, 0.15) (8, 0.4) (12, 0.6) (15, 0.69) (17, 0.71)
-            canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize}" height="${rectSize}"><rect width="${rectSize}" height="${rectSize}" fill="${this.selectedColor}"/></svg>') ${rectSize * scale} ${rectSize * scale}, crosshair`;
+            const canvas = this.context.canvas;
+            const rectSize = 4 * this.context.lineWidth;
+            const shiftScale = rectsizeToScale[rectSize / 4]; // (20, 0.72) (10, 0.5) (5, 0.15) (8, 0.4) (12, 0.6) (15, 0.69) (17, 0.71)
+            const sizeScale = 0.8;
+            canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize * sizeScale}" height="${rectSize * sizeScale}"><rect width="${rectSize * sizeScale}" height="${rectSize * sizeScale}" fill="${this.selectedColor}"/></svg>') ${rectSize * shiftScale} ${rectSize * shiftScale}, crosshair`;
         },
         fillCanvas() {
-            this.context?.fillRect(0, 0, (this.$refs.canvas as HTMLCanvasElement).width, (this.$refs.canvas as HTMLCanvasElement).width);
+            this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
+            this.sendCanvasToSocket();
         },
         changeSlider() {
             if (!this.context) return;
             console.log('sliderVal:', this.sliderVal);
             document.body.style.setProperty('--eqz', this.sliderVal);
             // change size to the closest value to 
-            const progress = parseInt(this.sliderVal) / 100.0 * 15 + 5;
+            const progress = parseInt(this.sliderVal) / 100.0 * 8 + 1;
             let closest = 69420;
             for (const sizeOption of Object.keys(rectsizeToScale).map(Number)) {
                 const dif = Math.abs(sizeOption - progress);
@@ -122,7 +176,22 @@ export default {
             this.lineWidth = closest;
             this.context.lineWidth = closest;
             this.updateCursor();
-            document.body.style.setProperty('--brushSize', closest.toString());
+            document.body.style.setProperty('--brushSize', (closest * 2 * 1.5).toString());
+            console.log('closest', closest);
+        },
+        sendCanvasToSocket() {
+            if (!this.context) return;
+            const imageData = this.context.getImageData(0, 0, this.context.canvas.width, this.context.canvas.height);
+            const pixelData = Array.from(imageData.data); // Convert Uint8ClampedArray to a regular array
+            const dataToSend = {
+                width: imageData.width,
+                height: imageData.height,
+                pixels: pixelData,
+            };
+            const json = JSON.stringify(dataToSend)
+            this.socket.send(json);
+            console.log('sent to socket:', json)
+
         }
         
     },
@@ -144,6 +213,10 @@ canvas {
     border-radius: 5px;
     max-width: 100%; /* Ensure the canvas doesn't exceed the screen width */
     max-height: 100%; /* Ensure the canvas doesn't exceed the screen height */
+    image-rendering: pixelated;
+    min-width: 800px;
+    min-height: 600px;
+    /* cursor: crosshair; */
 }
 .color-box {
 

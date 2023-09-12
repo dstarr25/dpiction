@@ -41,7 +41,7 @@ a,
 	--sz: 7px;
 	--eqz: 0;
     --color: black;
-    --brushSize: 5;
+    --brushSize: 3;
 }	
 
 body {
@@ -49,7 +49,7 @@ body {
 	padding: 0;
 	width: 100vw;
 	height: 100vh;
-	overflow: hidden;
+	/* overflow: hidden; */
 	display: flex;
 	align-items: center;
 	justify-content: center;
