@@ -36,33 +36,32 @@ a,
 
 @import url('https://fonts.googleapis.com/css2?family=Gochi+Hand&display=swap');
 
-
 :root {
 	--sz: 7px;
 	--eqz: 0;
     --color: black;
     --brushSize: 3;
-}	
+}
 
-body {
+.container {
 	margin: 0;
 	padding: 0;
 	width: 100vw;
 	height: 100vh;
-	/* overflow: hidden; */
+	overflow: visible;
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	background-color: #3b3e45;
 }
 
-body:before, body:after {
+.container:before, .container:after {
 	content: "";
 	position: absolute;
 	width: 100%;
 	height: 100%;
-	background: 
-		repeating-conic-gradient(#0002 0.00008%, #fff0 .0004%, #fff0 .006%, #fff0 .0004%), 
+	background:
+		repeating-conic-gradient(#0002 0.00008%, #fff0 .0004%, #fff0 .006%, #fff0 .0004%),
 		repeating-conic-gradient(#0002 0.0001%, #fff0 .0002%, #fff0 .0004%, #fff0 .00004%);
 	opacity: 0.75;
 	filter: blur(0.6px);
@@ -71,6 +70,8 @@ body:before, body:after {
 
 *, *:before, *:after {
 	box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 	transition: all 0s ease 0s;
 	font-family: 'Gochi Hand', Arial, serif;
 }
