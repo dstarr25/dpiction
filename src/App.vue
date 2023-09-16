@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages } from './types';
-import type { JoinSuccessData, JoinDataToClient } from './types'
+import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 // import DrawingCanvas from './components/DrawingCanvas.vue'
@@ -24,15 +24,18 @@ export default {
             players: {} as {[key: string]: Player},
             admin: "",
             name: "",
-            gameId: ""
+            gameId: "",
+            isDrawer: false
         }
     },
     mounted() {
         // something
     },
     computed: {
-        urlSearchParams() {
-            return new URLSearchParams(window.location.search)
+        urlGameId() {
+            const usp = new URLSearchParams(window.location.search)
+            const gameId = usp.get('gameId')
+            return gameId
         }
     },
     methods: {
@@ -63,21 +66,27 @@ export default {
                 } else if (action === ToClientMessages.JOIN) {
                     const data = json.data as JoinDataToClient
                     this.players[data.name] = new Player(data.name)
+                } else if (action === ToClientMessages.LEAVE) {
+                    const data = json.data as LeaveDataToClient
+                    delete this.players[data.playerName]
+                    this.admin = data.admin
+                    this.isDrawer = data.drawer === this.name
                 }
             })
             this.socket.addEventListener('close', (event) => {
                 console.log('close event code: ', event.code)
-                sendErrorMessage(`Error: ${CodeMessages[event.code]}`)
+                sendErrorMessage(`${CodeMessages[event.code]}`)
                 this.resetData()
             })
         },
-        createGame() {
-            this.startWebSocket('banana')
+        // createGame() {
+        //     this.startWebSocket('banana')
 
-        },
+        // },
         joinGame() {
-            const gameId = this.urlSearchParams.get('gameId') as string
-            this.startWebSocket(gameId)
+            let id = this.urlGameId;
+            if (id === null) id = 'banana'
+            this.startWebSocket(id)
         },
         resetData() {
             this.players = { }
@@ -100,14 +109,13 @@ export default {
             leave-from-class="opacity-100"
             leave-to-class="opacity-0"
         >
-            <div v-if="!gameId" class="flex gap-4 bg-black p-10 w-full h-full flex justify-center items-center">
-                <input class="rounded p-2" type="text" placeholder="name" v-model="name">
-
-                <button v-if="!urlSearchParams.has('gameId')" class="bg-gray-400 rounded p-2 hover:scale-110 transition-all" type="button" @click="createGame">create game</button>
-                <button v-else type="button" class="bg-gray-400 rounded p-2" @click="joinGame">join game</button>
-
+            <div v-if="!gameId" class="flex p-10 w-full h-full flex justify-center items-center">
+                <form @submit.prevent="joinGame">
+                    <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="name" v-model="name">
+                    <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
+                </form>
             </div>
-            <div v-else class="bg-red-400 w-full h-full flex justify-center items-center">
+            <div v-else class="bg-red-400 w-full h-full flex justify-center items-center flex-col">
                 <p v-for="playerName of Object.keys(players)" :key="playerName">{{ playerName }}</p>
             </div>
         </transition>

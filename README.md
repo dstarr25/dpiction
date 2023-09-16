@@ -1,4 +1,6 @@
-# pictionary
+# dpict.ink
+
+Potential domain names: dpict.ink, dpiction.ink
 
 This template should help get you started developing with Vue 3 in Vite.
 
