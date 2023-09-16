@@ -28,12 +28,7 @@ export default {
         }
     },
     mounted() {
-        // let queryString = window.location.search;
-        // let urlParams = new URLSearchParams(queryString);
-
-        // if (urlParams.has('gameId')) {
-        //     locationFilter = urlParams.get('location');
-        // }
+        // something
     },
     computed: {
         urlSearchParams() {
@@ -70,12 +65,10 @@ export default {
                     this.players[data.name] = new Player(data.name)
                 }
             })
-            this.socket.addEventListener('error', (event) => {
-                // An error occurred during the connection attempt
-                sendErrorMessage('Connection error. Try again later.')
-            })
             this.socket.addEventListener('close', (event) => {
+                console.log('close event code: ', event.code)
                 sendErrorMessage(`Error: ${CodeMessages[event.code]}`)
+                this.resetData()
             })
         },
         createGame() {
@@ -85,6 +78,12 @@ export default {
         joinGame() {
             const gameId = this.urlSearchParams.get('gameId') as string
             this.startWebSocket(gameId)
+        },
+        resetData() {
+            this.players = { }
+            this.admin = ""
+            this.name = ""
+            this.gameId = ""
         }
     }
 }
@@ -92,17 +91,29 @@ export default {
 
 <template>
     <!-- <DrawingCanvas /> -->
-    <div class="container">
-        <div v-if="!gameId">
-            <input type="text" placeholder="name" v-model="name">
+    <div class="appContainer">
+        <transition mode="out-in"
+            enter-active-class="duration-300 ease-in-out"
+            enter-from-class="opacity-0"
+            enter-to-class="opacity-100"
+            leave-active-class="duration-300 ease-in-out"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+        >
+            <div v-if="!gameId" class="flex gap-4 bg-black p-10 w-full h-full flex justify-center items-center">
+                <input class="rounded p-2" type="text" placeholder="name" v-model="name">
 
-            <button v-if="!urlSearchParams.has('gameId')" type="button" @click="createGame">create game</button>
-            <button v-else type="button" @click="joinGame">join game</button>
+                <button v-if="!urlSearchParams.has('gameId')" class="bg-gray-400 rounded p-2 hover:scale-110 transition-all" type="button" @click="createGame">create game</button>
+                <button v-else type="button" class="bg-gray-400 rounded p-2" @click="joinGame">join game</button>
 
-        </div>
-        <div v-else>
-            <p v-for="playerName of Object.keys(players)" :key="playerName">{{ playerName }}</p>
-        </div>
+            </div>
+            <div v-else class="bg-red-400 w-full h-full flex justify-center items-center">
+                <p v-for="playerName of Object.keys(players)" :key="playerName">{{ playerName }}</p>
+            </div>
+        </transition>
     </div>
 </template>
 
+<style scoped>
+
+</style>
