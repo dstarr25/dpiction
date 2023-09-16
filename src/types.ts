@@ -18,6 +18,7 @@ export enum ToServerMessages {
     DRAW = 'draw', // drawer draws something
     GUESS = 'guess', // someone makes a guess
     PROMPT = 'prompt', // someone writes a prompt
+    START = 'start',
 }
 
 export enum ToClientMessages {
@@ -26,6 +27,8 @@ export enum ToClientMessages {
     LEAVE = 'leave',
     DRAW = 'draw', // drawer draws something
     GUESS = 'guess', // someone makes a guess, only send to drawer
+    ERROR = 'error',
+    START = 'start',
 }
 
 export enum CloseReasons {
@@ -128,4 +131,8 @@ export class Room {
 export interface JoinResponse {
     roomId: string,
     name: string
+}
+
+export interface ErrorDataToClient {
+    error: string,
 }

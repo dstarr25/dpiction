@@ -52,12 +52,7 @@ a,
 	display: flex;
 	align-items: center;
 	justify-content: center;
-    background-color:hsla(0,0%,10%,1);
-    background-image:
-        radial-gradient(at 77% 21%, hsla(22,0%,10%,1) 0px, transparent 50%),
-        radial-gradient(at 80% 70%, hsla(22,0%,20%,1) 0px, transparent 50%),
-        radial-gradient(at 15% 100%, hsla(241,0%,15%,1) 0px, transparent 50%),
-        radial-gradient(at 23% 28%, hsla(343,0%,10%,1) 0px, transparent 50%);
+    background: radial-gradient(ellipse at bottom, #1b352a 0%, #090A0F 100%);
     background-repeat: repeat;
 }
 

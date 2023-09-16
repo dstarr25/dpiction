@@ -1,7 +1,9 @@
 <script lang="ts">
-import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages } from './types';
-import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient } from './types'
+import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates } from './types';
+import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient } from './types'
 import Swal from 'sweetalert2'
+
+import loadingImage from './assets/loading.png'
 
 // import DrawingCanvas from './components/DrawingCanvas.vue'
 
@@ -20,12 +22,15 @@ const sendErrorMessage = (message: string) => {
 export default {
     data() {
         return {
+            GameStates,
             socket: null as WebSocket | null,
             players: {} as {[key: string]: Player},
-            admin: "",
-            name: "",
-            gameId: "",
-            isDrawer: false
+            admin: '',
+            name: '',
+            gameId: '',
+            gameState: '',
+            isDrawer: false,
+            loading: false
         }
     },
     mounted() {
@@ -40,10 +45,10 @@ export default {
     },
     methods: {
         startWebSocket(gameId: string) {
-            this.socket = new WebSocket("ws://localhost:3000")
-            this.socket.addEventListener("open", () => {
+            this.socket = new WebSocket('ws://localhost:3000')
+            this.socket.addEventListener('open', () => {
                 if (!this.socket) return
-                console.log("WebSocket connection opened.");
+                console.log('WebSocket connection opened.');
                 // Now that the connection is open, you can send a message.
                 const joinMessage = new SocketMessage(ToServerMessages.JOIN, {
                     name: this.name,
@@ -63,6 +68,8 @@ export default {
                     })
                     this.admin = data.admin
                     this.gameId = data.gameId
+                    this.gameState = this.GameStates.OPEN
+                    this.loading = false
                 } else if (action === ToClientMessages.JOIN) {
                     const data = json.data as JoinDataToClient
                     this.players[data.name] = new Player(data.name)
@@ -71,28 +78,38 @@ export default {
                     delete this.players[data.playerName]
                     this.admin = data.admin
                     this.isDrawer = data.drawer === this.name
+                } else if (action === ToClientMessages.ERROR) {
+                    const data = json.data as ErrorDataToClient
+                    sendErrorMessage(data.error)
+                } else if (action === ToClientMessages.START) {
+                    // data should be empty obj, don't do anything with it
+                    this.gameState = GameStates.PROMPTS
                 }
             })
-            this.socket.addEventListener('close', (event) => {
+            this.socket.addEventListener("close", (event) => {
                 console.log('close event code: ', event.code)
                 sendErrorMessage(`${CodeMessages[event.code]}`)
                 this.resetData()
             })
         },
-        // createGame() {
-        //     this.startWebSocket('banana')
-
-        // },
         joinGame() {
+            this.loading = true
             let id = this.urlGameId;
-            if (id === null) id = 'banana'
+            if (id === null) id = 'banana' // banana is the id used to create a game :)
             this.startWebSocket(id)
         },
         resetData() {
             this.players = { }
-            this.admin = ""
-            this.name = ""
-            this.gameId = ""
+            this.admin = ''
+            this.name = ''
+            this.gameId = ''
+            this.loading = false
+        },
+        startGame() {
+            if (!this.socket || this.admin !== this.name || !this.gameId) return // cuz they're trolling
+            // send start game message to server
+            const startMessage = new SocketMessage(ToServerMessages.START, { name: this.name, gameId: this.gameId })
+            this.socket.send(JSON.stringify(startMessage))
         }
     }
 }
@@ -109,14 +126,47 @@ export default {
             leave-from-class="opacity-100"
             leave-to-class="opacity-0"
         >
-            <div v-if="!gameId" class="flex p-10 w-full h-full flex justify-center items-center">
+            <!-- enter name and join screen -->
+            <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
                 <form @submit.prevent="joinGame">
                     <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="name" v-model="name">
                     <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
                 </form>
             </div>
-            <div v-else class="bg-red-400 w-full h-full flex justify-center items-center flex-col">
-                <p v-for="playerName of Object.keys(players)" :key="playerName">{{ playerName }}</p>
+
+            <!-- loading screen -->
+            <div v-else-if="loading" class="flex w-full h-full flex justify-center items-center">
+                <img src="./assets/loading.png" alt="loading..." class="animate-spin">
+            </div>
+
+            <!-- in the game screen -->
+            <div v-else class="w-full h-full flex justify-center items-center flex-col">
+                
+                <div v-if="gameState === GameStates.OPEN" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                    <div>Players:</div>
+                    <div class="flex flex-row gap-2">
+                        <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
+                    </div>
+                    <div class="flex w-full flex-row justify-end items-center">
+                        <transition mode="out-in"
+                            enter-active-class="duration-300 ease-in-out"
+                            enter-from-class="opacity-0"
+                            enter-to-class="opacity-100"
+                            leave-active-class="duration-300 ease-in-out"
+                            leave-from-class="opacity-100"
+                            leave-to-class="opacity-0"
+                        >
+                            <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
+                            <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for admin to start game...</div>
+                        </transition>
+                    </div>
+                </div>
+
+                <div v-else-if="gameState === GameStates.PROMPTS" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                    <div>You have now begun the prompting stage of the game.</div>
+                    
+                </div>
+
             </div>
         </transition>
     </div>
