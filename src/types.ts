@@ -22,13 +22,14 @@ export enum ToServerMessages {
 }
 
 export enum ToClientMessages {
-    JOIN_SUCCESS = 'join_success', // successful join, server sends room data
+    JOIN_SUCCESS = 'joinsuccess', // successful join, server sends room data
     JOIN = 'join', // to tell the clients that someone else joined
     LEAVE = 'leave',
     DRAW = 'draw', // drawer draws something
     GUESS = 'guess', // someone makes a guess, only send to drawer
     ERROR = 'error',
     START = 'start',
+    PROMPT_SUCCESS = 'promptsuccess',
 }
 
 export enum CloseReasons {
@@ -104,6 +105,11 @@ export interface LeaveDataToClient {
     drawer: string,
     admin: string,
 }
+
+export interface PromptSuccessDataToClient {
+    prompt: string,
+}
+
 
 export class Room {
     players: {[key: string]: Player}

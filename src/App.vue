@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates } from './types';
-import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient } from './types'
+import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
@@ -19,6 +19,17 @@ const sendErrorMessage = (message: string) => {
     })
 }
 
+const sendSuccessMessage = (message: string) => {
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        showConfirmButton: false,
+        timer: 1000,
+        icon: 'success',
+        text: message
+    })
+}
+
 export default {
     data() {
         return {
@@ -30,7 +41,8 @@ export default {
             gameId: '',
             gameState: '',
             isDrawer: false,
-            loading: false
+            loading: false,
+            promptEdit: "",
         }
     },
     mounted() {
@@ -84,6 +96,10 @@ export default {
                 } else if (action === ToClientMessages.START) {
                     // data should be empty obj, don't do anything with it
                     this.gameState = GameStates.PROMPTS
+                } else if (action === ToClientMessages.PROMPT_SUCCESS) {
+                    const data = json.data as PromptSuccessDataToClient
+                    sendSuccessMessage(`Submitted: "${data.prompt}"`)
+
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -110,6 +126,12 @@ export default {
             // send start game message to server
             const startMessage = new SocketMessage(ToServerMessages.START, { name: this.name, gameId: this.gameId })
             this.socket.send(JSON.stringify(startMessage))
+        },
+        submitPrompt() {
+            if (!this.socket || this.gameState !== this.GameStates.PROMPTS || !this.gameId) return
+            const promptMessage = new SocketMessage(ToServerMessages.PROMPT, { name: this.name, gameId: this.gameId, prompt: this.promptEdit })
+            this.socket.send(JSON.stringify(promptMessage))
+            this.promptEdit = ""
         }
     }
 }
@@ -143,6 +165,7 @@ export default {
             <div v-else class="w-full h-full flex justify-center items-center flex-col">
                 
                 <div v-if="gameState === GameStates.OPEN" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                    gameId: {{ gameId }}
                     <div>Players:</div>
                     <div class="flex flex-row gap-2">
                         <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
@@ -164,6 +187,15 @@ export default {
 
                 <div v-else-if="gameState === GameStates.PROMPTS" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
                     <div>You have now begun the prompting stage of the game.</div>
+                    <div>
+                        Each drawer will select a prompt from a group of prompts written by other players. 
+                        The author of a prompt will receive points when their prompt is chosen, 
+                        so make your prompts something you would want to draw!
+                    </div>
+                    <form @submit.prevent="submitPrompt">
+                        <input type="text" v-model="promptEdit">
+                        <button type="submit">submit</button>
+                    </form>
                     
                 </div>
 
