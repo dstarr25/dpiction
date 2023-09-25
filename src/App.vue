@@ -1,13 +1,13 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates } from './types';
-import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient } from './types'
+import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
 
-// import DrawingCanvas from './components/DrawingCanvas.vue'
+import DrawingCanvas from '@/components/DrawingCanvas.vue'
 
-const sendErrorMessage = (message: string) => {
+const showErrorMessage = (message: string) => {
     Swal.fire({
         toast: true,
         position: 'top-end',
@@ -19,7 +19,7 @@ const sendErrorMessage = (message: string) => {
     })
 }
 
-const sendSuccessMessage = (message: string) => {
+const showSuccessMessage = (message: string) => {
     Swal.fire({
         toast: true,
         position: 'top-end',
@@ -34,16 +34,22 @@ export default {
     data() {
         return {
             GameStates,
-            socket: null as WebSocket | null,
+            socket: undefined as WebSocket | undefined,
             players: {} as {[key: string]: Player},
             admin: '',
             name: '',
             gameId: '',
             gameState: '',
-            isDrawer: false,
             loading: false,
             promptEdit: "",
+            roundNum: -1,
+            drawer: "",
+            choices: [] as Prompt[],
+            prompt: {} as Prompt,
         }
+    },
+    components: {
+        DrawingCanvas
     },
     mounted() {
         // something
@@ -53,6 +59,9 @@ export default {
             const usp = new URLSearchParams(window.location.search)
             const gameId = usp.get('gameId')
             return gameId
+        },
+        isDrawer() {
+            return this.drawer === this.name
         }
     },
     methods: {
@@ -89,22 +98,31 @@ export default {
                     const data = json.data as LeaveDataToClient
                     delete this.players[data.playerName]
                     this.admin = data.admin
-                    this.isDrawer = data.drawer === this.name
+                    this.drawer = data.drawer
                 } else if (action === ToClientMessages.ERROR) {
                     const data = json.data as ErrorDataToClient
-                    sendErrorMessage(data.error)
+                    showErrorMessage(data.error)
                 } else if (action === ToClientMessages.START) {
                     // data should be empty obj, don't do anything with it
                     this.gameState = GameStates.PROMPTS
                 } else if (action === ToClientMessages.PROMPT_SUCCESS) {
                     const data = json.data as PromptSuccessDataToClient
-                    sendSuccessMessage(`Submitted: "${data.prompt}"`)
+                    showSuccessMessage(`Submitted: "${data.prompt}"`)
+
+                } else if (action === ToClientMessages.NEW_ROUND) {
+                    const data = json.data as NewRoundDataToClient
+                    this.gameState = this.GameStates.DRAWING
+                    this.roundNum = data.roundNum
+                    this.drawer = data.drawer
+                } else if (action === ToClientMessages.CHOICES) {
+                    const data = json.data as Prompt[]
+                    this.choices = data
 
                 }
             })
             this.socket.addEventListener("close", (event) => {
                 console.log('close event code: ', event.code)
-                sendErrorMessage(`${CodeMessages[event.code]}`)
+                showErrorMessage(`${CodeMessages[event.code]}`)
                 this.resetData()
             })
         },
@@ -132,6 +150,10 @@ export default {
             const promptMessage = new SocketMessage(ToServerMessages.PROMPT, { name: this.name, gameId: this.gameId, prompt: this.promptEdit })
             this.socket.send(JSON.stringify(promptMessage))
             this.promptEdit = ""
+        },
+        choosePrompt(prompt: Prompt) {
+            this.prompt = prompt
+            this.choices = []
         }
     }
 }
@@ -154,7 +176,7 @@ export default {
                     <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="name" v-model="name">
                     <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
                 </form>
-            </div>
+            </div> 
 
             <!-- loading screen -->
             <div v-else-if="loading" class="flex w-full h-full flex justify-center items-center">
@@ -197,6 +219,10 @@ export default {
                         <button type="submit">submit</button>
                     </form>
                     
+                </div>
+                <div class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5" v-else-if="gameState === GameStates.DRAWING">
+                    drawing phase
+                    <DrawingCanvas :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
                 </div>
 
             </div>

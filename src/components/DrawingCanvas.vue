@@ -24,8 +24,8 @@
 </template>
 
 <script lang="ts">
-import type { JoinData, SocketMessage } from '../types'
-import { MessageTypes } from '../types'
+import { SocketMessage, ToClientMessages, ToServerMessages } from '../types'
+import type { Prompt, JoinData } from '../types'
 const rectsizeToScale: {[key: number]: number} = {
     1: 0.4,
     3: 0.5,
@@ -33,12 +33,16 @@ const rectsizeToScale: {[key: number]: number} = {
     7: 0.57,
     9: .6
 };
-const socket = new WebSocket("ws://localhost:3000")
 
 export default {
+    props: {
+        isDrawer: Boolean,
+        socket: WebSocket,
+        prompt: Object,
+
+    },
     data() {
         return {
-            socket,
             colorOptions: ['black', 'white', 'red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet'],
             selectedColor: 'black',
             isDrawing: false,
@@ -62,56 +66,11 @@ export default {
             this.context.lineWidth = this.lineWidth; 
             this.updateCursor();
 
-            // add socket listeners tbh
-            this.socket.addEventListener("message", event => {
-                // if (!this.context) return;
-
-                // console.log(`Received message: ${event.data}`) 
-
-                // const messageData = JSON.parse(event.data)
-                // const width = messageData.width;
-                // const height = messageData.height;
-                // const pixelData = messageData.pixels;
-
-                // // Create an empty ImageData object with the same dimensions
-                // const imageData = this.context.createImageData(width, height);
-
-                // // Set the pixel data for the canvas
-                // for (let i = 0; i < pixelData.length; i += 4) {
-                //     const r = pixelData[i];
-                //     const g = pixelData[i + 1];
-                //     const b = pixelData[i + 2];
-                //     const a = pixelData[i + 3];
-
-                //     // Set pixel values in the ImageData object
-                //     imageData.data[i] = r;
-                //     imageData.data[i + 1] = g;
-                //     imageData.data[i + 2] = b;
-                //     imageData.data[i + 3] = a;
-                // }
-
-                // // Put the ImageData on the canvas
-                // this.context.putImageData(imageData, 0, 0);
-                console.log('received message: ', event.data)
-            })
-            this.socket.addEventListener("open", () => {
-                console.log("WebSocket connection opened.")
-                const socketMessage = {
-                    action: MessageTypes.JOIN,
-                    data: {
-                        name: "devon",
-                        gameId: "banana",
-                    } as JoinData
-                } as SocketMessage
-
-                console.log('sending join message...')
-                this.socket.send(JSON.stringify(socketMessage))
-                // Now that the connection is open, you can send a message.
-            });
         }
     },
     methods: {
         startDrawing(event: MouseEvent) {
+            if (!this.isDrawer) return
             this.isDrawing = true;
             if (this.context) {
                 this.context.beginPath();
@@ -122,6 +81,7 @@ export default {
             }
         },
         draw(event: MouseEvent) {
+            if (!this.isDrawer) return
             if (!this.isDrawing) return;
             if (this.context) {
                 this.context.lineTo(
@@ -132,6 +92,7 @@ export default {
             }
         },
         stopDrawing() {
+            if (!this.isDrawer) return
             this.isDrawing = false;
             if (this.context) {
                 this.context.closePath();
@@ -180,7 +141,7 @@ export default {
             console.log('closest', closest);
         },
         sendCanvasToSocket() {
-            if (!this.context) return;
+            if (!this.context || !this.socket) return;
             const imageData = this.context.getImageData(0, 0, this.context.canvas.width, this.context.canvas.height);
             const pixelData = Array.from(imageData.data); // Convert Uint8ClampedArray to a regular array
             const dataToSend = {
@@ -188,10 +149,9 @@ export default {
                 height: imageData.height,
                 pixels: pixelData,
             };
-            const json = JSON.stringify(dataToSend)
-            this.socket.send(json);
-            console.log('sent to socket:', json)
-
+            const drawMessage = new SocketMessage(ToServerMessages.DRAW, dataToSend)
+            this.socket.send(JSON.stringify(drawMessage))
+            console.log('sent to socket:', JSON.stringify(drawMessage))
         }
         
     },

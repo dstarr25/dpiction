@@ -27,9 +27,12 @@ export enum ToClientMessages {
     LEAVE = 'leave',
     DRAW = 'draw', // drawer draws something
     GUESS = 'guess', // someone makes a guess, only send to drawer
-    ERROR = 'error',
     START = 'start',
+    ERROR = 'error',
     PROMPT_SUCCESS = 'promptsuccess',
+    START_DRAWING = 'startdrawing',
+    NEW_ROUND = 'newround',
+    CHOICES = 'choices'
 }
 
 export enum CloseReasons {
@@ -141,4 +144,9 @@ export interface JoinResponse {
 
 export interface ErrorDataToClient {
     error: string,
+}
+
+export interface NewRoundDataToClient {
+    drawer: string,
+    roundNum: number
 }
