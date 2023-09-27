@@ -1,23 +1,22 @@
 <template>
     <div class="canvas-container">
         <canvas ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" width="200" height="150"></canvas>
-        <div class="palette">
-            <div
-                v-for="(color, index) in colorOptions"
-                :key="index"
-                @click.prevent="selectColor(color)"
-                :style="{ backgroundColor: color, transform: selectedColor == color ? 'scale(1.7)' : 'scale(1)' }"
-                class="color-box"
-            />
-            <div class="color-box icon" style="margin-left: 15px;" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
-        </div>
-        <div class="content">
-            <div class="equalizer">
-                <input type="range" v-model="sliderVal" max="100" 
-                    @input="changeSlider"
-                
-                >
-                <div class="number"></div>
+        <div v-if="isDrawer">
+            <div class="palette">
+                <div
+                    v-for="(color, index) in colorOptions"
+                    :key="index"
+                    @click.prevent="selectColor(color)"
+                    :style="{ backgroundColor: color, transform: selectedColor == color ? 'scale(1.7)' : 'scale(1)' }"
+                    class="w-10 h-10 rounded-full cursor-pointer transition-all"
+                />
+                <div class="color-box icon" style="margin-left: 15px;" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
+            </div>
+            <div class="content">
+                <div class="equalizer">
+                    <input type="range" v-model="sliderVal" max="100" @input="changeSlider">
+                    <div class="number" />
+                </div>
             </div>
         </div>
     </div>
@@ -70,38 +69,30 @@ export default {
     },
     methods: {
         startDrawing(event: MouseEvent) {
-            if (!this.isDrawer) return
+            if (!this.isDrawer || !this.context) return
             this.isDrawing = true;
-            if (this.context) {
-                this.context.beginPath();
-                this.context.moveTo(
-                    event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
-                    event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
-                );
-            }
+            this.context.beginPath();
+            this.context.moveTo(
+                event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
+                event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
+            );
         },
         draw(event: MouseEvent) {
-            if (!this.isDrawer) return
-            if (!this.isDrawing) return;
-            if (this.context) {
-                this.context.lineTo(
-                    event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
-                    event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
-                );
-                this.context.stroke();
-            }
+            if (!this.isDrawer || !this.isDrawing || !this.context) return
+            this.context.lineTo(
+                event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
+                event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
+            );
+            this.context.stroke();
         },
         stopDrawing() {
-            if (!this.isDrawer) return
+            if (!this.isDrawer || !this.context) return
             this.isDrawing = false;
-            if (this.context) {
-                this.context.closePath();
-                this.sendCanvasToSocket();
-            }
+            this.context.closePath();
+            this.sendCanvasToSocket();
         },
         selectColor(color: string) {
-            if (color === this.selectedColor) return;
-            if (!this.context) return;
+            if (!this.isDrawer || color === this.selectedColor || !this.context) return;
             this.selectedColor = color;
             this.context.strokeStyle = color;
             this.context.fillStyle = color;
@@ -109,8 +100,7 @@ export default {
             document.body.style.setProperty("--color", color);
         },
         updateCursor() {
-            // return;
-            if (!this.context) return;
+            if (!this.isDrawer || !this.context) return;
             const canvas = this.context.canvas;
             const rectSize = 4 * this.context.lineWidth;
             const shiftScale = rectsizeToScale[rectSize / 4]; // (20, 0.72) (10, 0.5) (5, 0.15) (8, 0.4) (12, 0.6) (15, 0.69) (17, 0.71)
@@ -118,11 +108,12 @@ export default {
             canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize * sizeScale}" height="${rectSize * sizeScale}"><rect width="${rectSize * sizeScale}" height="${rectSize * sizeScale}" fill="${this.selectedColor}"/></svg>') ${rectSize * shiftScale} ${rectSize * shiftScale}, crosshair`;
         },
         fillCanvas() {
-            this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
+            if (!this.isDrawer || !this.context) return;
+            this.context.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
             this.sendCanvasToSocket();
         },
         changeSlider() {
-            if (!this.context) return;
+            if (!this.isDrawer || !this.context) return;
             console.log('sliderVal:', this.sliderVal);
             document.body.style.setProperty('--eqz', this.sliderVal);
             // change size to the closest value to 
@@ -141,7 +132,7 @@ export default {
             console.log('closest', closest);
         },
         sendCanvasToSocket() {
-            if (!this.context || !this.socket) return;
+            if (!this.isDrawer || !this.context || !this.socket) return;
             const imageData = this.context.getImageData(0, 0, this.context.canvas.width, this.context.canvas.height);
             const pixelData = Array.from(imageData.data); // Convert Uint8ClampedArray to a regular array
             const dataToSend = {
@@ -174,8 +165,8 @@ canvas {
     max-width: 100%; /* Ensure the canvas doesn't exceed the screen width */
     max-height: 100%; /* Ensure the canvas doesn't exceed the screen height */
     image-rendering: pixelated;
-    min-width: 800px;
-    min-height: 600px;
+    width: 800px;
+    height: 600px;
     /* cursor: crosshair; */
 }
 .color-box {
@@ -225,7 +216,7 @@ canvas {
 	left: calc(var(--sz) * 2.5);
 	transform: rotate(0deg);
 	transform-origin: 0 0;
-	z-index: -5;
+	/* z-index: -5; */
 	clip-path: polygon(0 30%, 0 0, 100% 0, 100% 100%, 0 100%, 0 70%, 10% 65%, 15% 45%);
 }
 
@@ -234,7 +225,7 @@ canvas {
 	top: calc(var(--sz) * 1.5);
 	left: calc(var(--sz) * 2.5);
 	filter: blur(2px);
-	z-index: -6;
+	/* z-index: -6; */
 }
 
 
@@ -256,7 +247,7 @@ canvas {
 	border-radius: 100%;
 	left: calc(var(--sz) * -1);
 	top: calc(var(--sz) * 6.3);
-	z-index: -5;
+	/* z-index: -5; */
 }
 
 .equalizer:after {
@@ -264,7 +255,7 @@ canvas {
 	filter: blur(2px);
 	left: calc(var(--sz) * -0.5);
 	top: calc(var(--sz) * 6.5);
-	z-index: -6;
+	/* z-index: -6; */
 }
 
 
