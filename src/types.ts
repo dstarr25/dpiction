@@ -19,6 +19,7 @@ export enum ToServerMessages {
     GUESS = 'guess', // someone makes a guess
     PROMPT = 'prompt', // someone writes a prompt
     START = 'start',
+    CHOOSE_PROMPT = 'chooseprompt'
 }
 
 export enum ToClientMessages {
@@ -32,7 +33,9 @@ export enum ToClientMessages {
     PROMPT_SUCCESS = 'promptsuccess',
     START_DRAWING = 'startdrawing',
     NEW_ROUND = 'newround',
-    CHOICES = 'choices'
+    CHOICES = 'choices',
+    TIME_REMAINING = 'timeremaining',
+    DRAWER_CHOSEN = 'drawerchosen'
 }
 
 export enum CloseReasons {
@@ -149,4 +152,14 @@ export interface ErrorDataToClient {
 export interface NewRoundDataToClient {
     drawer: string,
     roundNum: number
+}
+
+export interface TimeRemainingDataToClient {
+    timeRemaining: number
+}
+
+export interface DrawDataToClient {
+    width: number,
+    height: number,
+    pixels: number[],
 }

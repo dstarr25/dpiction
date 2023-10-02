@@ -1,11 +1,12 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates } from './types';
-import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt } from './types'
+import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
 
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
+import TransitionModal from '@/components/TransitionModal.vue'
 
 const showErrorMessage = (message: string) => {
     Swal.fire({
@@ -46,10 +47,14 @@ export default {
             drawer: "",
             choices: [] as Prompt[],
             prompt: {} as Prompt,
+            timeRemaining: -1,
+            showChoiceModal: false,
+            drawerChosen: false
         }
     },
     components: {
-        DrawingCanvas
+        DrawingCanvas,
+        modal: TransitionModal
     },
     mounted() {
         // something
@@ -118,6 +123,29 @@ export default {
                     const data = json.data as Prompt[]
                     this.choices = data
 
+                } else if (action === ToClientMessages.TIME_REMAINING) {
+                    const data = json.data as TimeRemainingDataToClient
+                    this.timeRemaining = data.timeRemaining
+                } else if (action === ToClientMessages.DRAWER_CHOSEN) {
+                    this.drawerChosen = true
+                } else if (action === ToClientMessages.DRAW) {
+                    const ctx = (this.$refs.canvas?.$refs.canvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true })
+                    if (!ctx) return
+
+                    const data = json.data as DrawDataToClient
+                    const w = data.width
+                    const h = data.height
+                    if (ctx.canvas.width !== w || ctx.canvas.height !== h) return
+
+                    const pixelData = data.pixels
+                    const newImageData = ctx.createImageData(w, h)
+
+                    // Copy the pixelData into the new ImageData object
+                    for (let i = 0; i < pixelData.length; i++) {
+                        newImageData.data[i] = pixelData[i]
+                    }
+                    ctx.putImageData(newImageData, 0, 0);
+
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -152,8 +180,11 @@ export default {
             this.promptEdit = ""
         },
         choosePrompt(prompt: Prompt) {
+            if (!this.socket || this.gameState !== this.GameStates.DRAWING || !this.gameId) return
             this.prompt = prompt
             this.choices = []
+            const promptChoiceMessage = new SocketMessage(ToServerMessages.CHOOSE_PROMPT, {name: this.name, gameId: this.gameId, prompt})
+            this.socket.send(JSON.stringify(promptChoiceMessage))
         }
     }
 }
@@ -163,12 +194,10 @@ export default {
     <!-- <DrawingCanvas /> -->
     <div class="appContainer">
         <transition mode="out-in"
-            enter-active-class="duration-300 ease-in-out"
             enter-from-class="opacity-0"
-            enter-to-class="opacity-100"
-            leave-active-class="duration-300 ease-in-out"
-            leave-from-class="opacity-100"
             leave-to-class="opacity-0"
+            enter-active-class="duration-300 ease-in-out"
+            leave-active-class="duration-300 ease-in-out"
         >
             <!-- enter name and join screen -->
             <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
@@ -196,9 +225,7 @@ export default {
                         <transition mode="out-in"
                             enter-active-class="duration-300 ease-in-out"
                             enter-from-class="opacity-0"
-                            enter-to-class="opacity-100"
                             leave-active-class="duration-300 ease-in-out"
-                            leave-from-class="opacity-100"
                             leave-to-class="opacity-0"
                         >
                             <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
@@ -214,6 +241,7 @@ export default {
                         The author of a prompt will receive points when their prompt is chosen, 
                         so make your prompts something you would want to draw!
                     </div>
+                    <div>Time remaining: {{ timeRemaining }}</div>
                     <form @submit.prevent="submitPrompt">
                         <input type="text" v-model="promptEdit">
                         <button type="submit">submit</button>
@@ -221,8 +249,18 @@ export default {
                     
                 </div>
                 <div class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5" v-else-if="gameState === GameStates.DRAWING">
-                    drawing phase
-                    <DrawingCanvas :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
+                    <modal :show="choices.length > 0">
+                        <div class="flex flex-col gap-4 items-center justify-center">
+                            <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
+                            <div class="flex flex-row gap-2">
+                                <button type="button" class="p-4 bg-gray-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                            </div>
+                        </div>
+                    </modal>
+                    <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
+                    <div v-else-if="drawerChosen">{{ drawer }} has chosen a prompt</div>
+                    <div v-else>{{ drawer }} is choosing a prompt</div>
+                    <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
                 </div>
 
             </div>

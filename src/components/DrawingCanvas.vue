@@ -1,16 +1,18 @@
 <template>
-    <div class="canvas-container">
-        <canvas ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" width="200" height="150"></canvas>
+    <div class="flex flex-col gap-4 justify-center items-center">
+        <canvas class="rounded-lg w-1/3 border-4 border-black" style="cursor: url(./src/assets/pb32.png), auto;image-rendering: pixelated; aspect-ratio: 4/3;" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
+        <!-- <div class="fixed top-10 left-10 bg-white rounded p-10 text-black">{{ debugText }}</div> -->
         <div v-if="isDrawer">
-            <div class="palette">
+            <div class="flex flex-row items-center gap-1">
                 <div
                     v-for="(color, index) in colorOptions"
                     :key="index"
                     @click.prevent="selectColor(color)"
-                    :style="{ backgroundColor: color, transform: selectedColor == color ? 'scale(1.7)' : 'scale(1)' }"
+                    :style="{ backgroundColor: color }"
+                    :class="{'scale-150': selectedColor === color}"
                     class="w-10 h-10 rounded-full cursor-pointer transition-all"
                 />
-                <div class="color-box icon" style="margin-left: 15px;" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
+                <div class="w-10 h-10 cursor-pointer flex justify-center items-center text-3xl text-black ml-4" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
             </div>
             <div class="content">
                 <div class="equalizer">
@@ -38,6 +40,8 @@ export default {
         isDrawer: Boolean,
         socket: WebSocket,
         prompt: Object,
+        gameId: String,
+        name: String
 
     },
     data() {
@@ -50,63 +54,74 @@ export default {
             lastY: 0,
             sliderVal: "0",
             lineWidth: 1,
+            // isDrawer: true,
+            debugText: ""
         };
     },
     mounted() {
         // Use type assertion to specify the type of this.$refs.canvas
         this.context = (this.$refs.canvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true });
-        if (this.context) {
+        if (!this.context) return
 
-            // setup canvas to be white and default color black, linewidth 1 etc.
-            this.context.fillStyle = 'white';
-            this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
-            this.context.fillStyle = this.selectedColor;
-            this.context.strokeStyle = this.selectedColor; 
-            this.context.lineWidth = this.lineWidth; 
-            this.updateCursor();
+        // setup canvas to be white and default color black, linewidth 1 etc.
+        this.context.fillStyle = 'white';
+        this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
+        this.context.fillStyle = this.selectedColor;
+        this.context.strokeStyle = this.selectedColor; 
+        this.context.lineWidth = this.lineWidth; 
 
-        }
+        // this.updateCursor();
+
     },
     methods: {
-        startDrawing(event: MouseEvent) {
+        startDrawing(e: MouseEvent) {
             if (!this.isDrawer || !this.context) return
             this.isDrawing = true;
-            this.context.beginPath();
-            this.context.moveTo(
-                event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
-                event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
-            );
+            // Set the starting point for drawing
+            this.lastX = (e.clientX - this.context.canvas.getBoundingClientRect().left) * this.context.canvas.width / this.context.canvas.offsetWidth;
+            this.lastY = (e.clientY - this.context.canvas.getBoundingClientRect().top) * this.context.canvas.height / this.context.canvas.offsetHeight;
+            this.context.beginPath()
+            this.context.moveTo(this.lastX, this.lastY)
         },
-        draw(event: MouseEvent) {
+        draw(e: MouseEvent) {
             if (!this.isDrawer || !this.isDrawing || !this.context) return
-            this.context.lineTo(
-                event.clientX / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().left / 4,
-                event.clientY / 4 - this.context.lineWidth / 4 - this.context.canvas.getBoundingClientRect().top / 4
-            );
+            const x = (e.clientX - this.context.canvas.getBoundingClientRect().left) * this.context.canvas.width / this.context.canvas.offsetWidth;
+            const y = (e.clientY - this.context.canvas.getBoundingClientRect().top) * this.context.canvas.height / this.context.canvas.offsetHeight;
+            // this.debugText = `clientX: ${e.clientX}, clientY: ${e.clientY}` +
+            // `boundingleft: ${this.context.canvas.getBoundingClientRect().left}, boundingTop: ${this.context.canvas.getBoundingClientRect().top}`
+            // this.debugText = `w: ${this.context.canvas.width}, h: ${this.context.canvas.height}`
+            // Draw a line from the last point to the current point
+            // this.context.beginPath();
+            this.context.lineTo(x, y);
+            // this.context.lineTo(x, y);
             this.context.stroke();
+
+            // Update the last point
+            this.lastX = x;
+            this.lastY = y;
         },
         stopDrawing() {
-            if (!this.isDrawer || !this.context) return
+            if (!this.isDrawer || !this.context || !this.isDrawing) return
             this.isDrawing = false;
-            this.context.closePath();
-            this.sendCanvasToSocket();
+            this.context.closePath()
+            this.sendCanvasToSocket()
         },
         selectColor(color: string) {
             if (!this.isDrawer || color === this.selectedColor || !this.context) return;
             this.selectedColor = color;
             this.context.strokeStyle = color;
             this.context.fillStyle = color;
-            this.updateCursor();
+            // this.updateCursor();
             document.body.style.setProperty("--color", color);
         },
-        updateCursor() {
-            if (!this.isDrawer || !this.context) return;
-            const canvas = this.context.canvas;
-            const rectSize = 4 * this.context.lineWidth;
-            const shiftScale = rectsizeToScale[rectSize / 4]; // (20, 0.72) (10, 0.5) (5, 0.15) (8, 0.4) (12, 0.6) (15, 0.69) (17, 0.71)
-            const sizeScale = 0.8;
-            canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize * sizeScale}" height="${rectSize * sizeScale}"><rect width="${rectSize * sizeScale}" height="${rectSize * sizeScale}" fill="${this.selectedColor}"/></svg>') ${rectSize * shiftScale} ${rectSize * shiftScale}, crosshair`;
-        },
+        // updateCursor() {
+        //     if (!this.isDrawer || !this.context) return;
+        //     const canvas = this.context.canvas;
+        //     const rectSize = 4 * this.context.lineWidth;
+        //     const shiftScale = rectsizeToScale[rectSize / 4]; // (20, 0.72) (10, 0.5) (5, 0.15) (8, 0.4) (12, 0.6) (15, 0.69) (17, 0.71)
+        //     const sizeScale = 0.8;
+        //     canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize * sizeScale}" height="${rectSize * sizeScale}"><rect width="${rectSize * sizeScale}" height="${rectSize * sizeScale}" fill="${this.selectedColor}"/></svg>') ${rectSize * shiftScale} ${rectSize * shiftScale}, crosshair`;
+        // },
         fillCanvas() {
             if (!this.isDrawer || !this.context) return;
             this.context.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
@@ -127,7 +142,7 @@ export default {
             if (closest === this.lineWidth) return;
             this.lineWidth = closest;
             this.context.lineWidth = closest;
-            this.updateCursor();
+            // this.updateCursor();
             document.body.style.setProperty('--brushSize', (closest * 2 * 1.5).toString());
             console.log('closest', closest);
         },
@@ -135,65 +150,22 @@ export default {
             if (!this.isDrawer || !this.context || !this.socket) return;
             const imageData = this.context.getImageData(0, 0, this.context.canvas.width, this.context.canvas.height);
             const pixelData = Array.from(imageData.data); // Convert Uint8ClampedArray to a regular array
-            const dataToSend = {
+            const drawMessage = new SocketMessage(ToServerMessages.DRAW, {
                 width: imageData.width,
                 height: imageData.height,
                 pixels: pixelData,
-            };
-            const drawMessage = new SocketMessage(ToServerMessages.DRAW, dataToSend)
+                gameId: this.gameId,
+                name: this.name
+            })
             this.socket.send(JSON.stringify(drawMessage))
-            console.log('sent to socket:', JSON.stringify(drawMessage))
+            // console.log('sent to socket:', JSON.stringify(drawMessage))
         }
         
     },
-};
+}
 </script>
 
 <style scoped>
-.canvas-container {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 20px;
-    align-items: center;
-    height: 100vh; /* Make the container fill the entire viewport height */
-}
-
-canvas {
-    border: 5px solid rgb(21, 21, 21);
-    border-radius: 5px;
-    max-width: 100%; /* Ensure the canvas doesn't exceed the screen width */
-    max-height: 100%; /* Ensure the canvas doesn't exceed the screen height */
-    image-rendering: pixelated;
-    width: 800px;
-    height: 600px;
-    /* cursor: crosshair; */
-}
-.color-box {
-
-    user-select: none;
-    width: 40px;
-    height: 40px;
-    /* margin: 5px; */
-    cursor: pointer;
-    border-radius: 40px;
-    transition: all 0.3s ease-in-out;
-}
-
-.icon {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 40px;
-    color: white;
-}
-
-.palette {
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    gap: 4px;
-}
 
 .content {
 	position: relative;
@@ -216,7 +188,7 @@ canvas {
 	left: calc(var(--sz) * 2.5);
 	transform: rotate(0deg);
 	transform-origin: 0 0;
-	/* z-index: -5; */
+	z-index: -5;
 	clip-path: polygon(0 30%, 0 0, 100% 0, 100% 100%, 0 100%, 0 70%, 10% 65%, 15% 45%);
 }
 
@@ -225,7 +197,7 @@ canvas {
 	top: calc(var(--sz) * 1.5);
 	left: calc(var(--sz) * 2.5);
 	filter: blur(2px);
-	/* z-index: -6; */
+	z-index: -6;
 }
 
 
@@ -247,7 +219,7 @@ canvas {
 	border-radius: 100%;
 	left: calc(var(--sz) * -1);
 	top: calc(var(--sz) * 6.3);
-	/* z-index: -5; */
+	z-index: -5;
 }
 
 .equalizer:after {
@@ -255,7 +227,7 @@ canvas {
 	filter: blur(2px);
 	left: calc(var(--sz) * -0.5);
 	top: calc(var(--sz) * 6.5);
-	/* z-index: -6; */
+	z-index: -6;
 }
 
 
