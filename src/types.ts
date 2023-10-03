@@ -19,7 +19,8 @@ export enum ToServerMessages {
     GUESS = 'guess', // someone makes a guess
     PROMPT = 'prompt', // someone writes a prompt
     START = 'start',
-    CHOOSE_PROMPT = 'chooseprompt'
+    CHOOSE_PROMPT = 'chooseprompt',
+    HINT = 'hint'
 }
 
 export enum ToClientMessages {
@@ -35,7 +36,9 @@ export enum ToClientMessages {
     NEW_ROUND = 'newround',
     CHOICES = 'choices',
     TIME_REMAINING = 'timeremaining',
-    DRAWER_CHOSEN = 'drawerchosen'
+    DRAWER_CHOSEN = 'drawerchosen',
+    HINT = 'hint'
+
 }
 
 export enum CloseReasons {
@@ -163,3 +166,19 @@ export interface DrawDataToClient {
     height: number,
     pixels: number[],
 }
+
+export interface GuessDataToClient {
+    name: string,
+    guess: string
+}
+
+export enum HintTypes {
+    CLOSE = 'is close',
+    FAR = 'is NOT close',
+}
+
+export interface Hint {
+    type: string,
+    guess: string
+}
+

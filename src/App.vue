@@ -1,6 +1,6 @@
 <script lang="ts">
-import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates } from './types';
-import type { JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient } from './types'
+import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
+import type { Hint, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
@@ -25,7 +25,7 @@ const showSuccessMessage = (message: string) => {
         toast: true,
         position: 'top-end',
         showConfirmButton: false,
-        timer: 1000,
+        timer: 3000,
         icon: 'success',
         text: message
     })
@@ -37,6 +37,7 @@ export default {
             GameStates,
             socket: undefined as WebSocket | undefined,
             players: {} as {[key: string]: Player},
+            guesses: {} as {[key: string]: string},
             admin: '',
             name: '',
             gameId: '',
@@ -49,7 +50,10 @@ export default {
             prompt: {} as Prompt,
             timeRemaining: -1,
             showChoiceModal: false,
-            drawerChosen: false
+            drawerChosen: false,
+            guessEdit: "",
+            guess: "",
+            hints: [] as Hint[]
         }
     },
     components: {
@@ -67,6 +71,9 @@ export default {
         },
         isDrawer() {
             return this.drawer === this.name
+        },
+        HintTypes() {
+            return HintTypes
         }
     },
     methods: {
@@ -119,6 +126,11 @@ export default {
                     this.gameState = this.GameStates.DRAWING
                     this.roundNum = data.roundNum
                     this.drawer = data.drawer
+                    this.drawerChosen = false
+                    this.guesses = {}
+                    this.choices = []
+                    this.hints = []
+                    this.guess = ""
                 } else if (action === ToClientMessages.CHOICES) {
                     const data = json.data as Prompt[]
                     this.choices = data
@@ -129,7 +141,8 @@ export default {
                 } else if (action === ToClientMessages.DRAWER_CHOSEN) {
                     this.drawerChosen = true
                 } else if (action === ToClientMessages.DRAW) {
-                    const ctx = (this.$refs.canvas?.$refs.canvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true })
+                    //@ts-ignore
+                    const ctx = (this.$refs.canvas.$refs.canvas as HTMLCanvasElement).getContext('2d', { willReadFrequently: true }) 
                     if (!ctx) return
 
                     const data = json.data as DrawDataToClient
@@ -141,11 +154,20 @@ export default {
                     const newImageData = ctx.createImageData(w, h)
 
                     // Copy the pixelData into the new ImageData object
-                    for (let i = 0; i < pixelData.length; i++) {
+                    for (let i = 0; i < pixelData.length; i +=4) {
                         newImageData.data[i] = pixelData[i]
+                        newImageData.data[i+1] = pixelData[i+1]
+                        newImageData.data[i+2] = pixelData[i+2]
+                        newImageData.data[i+3] = 255
                     }
                     ctx.putImageData(newImageData, 0, 0);
 
+                } else if (action === ToClientMessages.GUESS) {
+                    const data = json.data as GuessDataToClient
+                    this.guesses[data.name] = data.guess
+                } else if (action === ToClientMessages.HINT) {
+                    const data = json.data as Hint
+                    this.hints.push(data)
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -174,17 +196,30 @@ export default {
             this.socket.send(JSON.stringify(startMessage))
         },
         submitPrompt() {
-            if (!this.socket || this.gameState !== this.GameStates.PROMPTS || !this.gameId) return
+            if (!this.socket || this.gameState !== GameStates.PROMPTS || !this.gameId) return
             const promptMessage = new SocketMessage(ToServerMessages.PROMPT, { name: this.name, gameId: this.gameId, prompt: this.promptEdit })
             this.socket.send(JSON.stringify(promptMessage))
             this.promptEdit = ""
         },
         choosePrompt(prompt: Prompt) {
-            if (!this.socket || this.gameState !== this.GameStates.DRAWING || !this.gameId) return
+            if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId) return
             this.prompt = prompt
             this.choices = []
             const promptChoiceMessage = new SocketMessage(ToServerMessages.CHOOSE_PROMPT, {name: this.name, gameId: this.gameId, prompt})
             this.socket.send(JSON.stringify(promptChoiceMessage))
+        },
+        submitGuess() {
+            if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || this.isDrawer) return
+            const guessMessage = new SocketMessage(ToServerMessages.GUESS, { name: this.name, guess: this.guessEdit, gameId: this.gameId })
+            this.socket.send(JSON.stringify(guessMessage))
+            this.guess = this.guessEdit
+            this.guessEdit = ""
+        },
+        sendHint(guess: string, type: string) {
+            if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || !this.isDrawer) return
+            const hintMessage = new SocketMessage(ToServerMessages.HINT, { gameId: this.gameId, guess, type, name: this.name })
+            this.socket.send(JSON.stringify(hintMessage))
+            showSuccessMessage(`Sent hint for guess '${guess}'!`)
         }
     }
 }
@@ -243,12 +278,12 @@ export default {
                     </div>
                     <div>Time remaining: {{ timeRemaining }}</div>
                     <form @submit.prevent="submitPrompt">
-                        <input type="text" v-model="promptEdit">
-                        <button type="submit">submit</button>
+                        <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
+                        <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
                     </form>
                     
                 </div>
-                <div class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5" v-else-if="gameState === GameStates.DRAWING">
+                <div class="bg-gray-800 text-white flex flex-col items-start justify-start rounded-xl p-5" v-else-if="gameState === GameStates.DRAWING">
                     <modal :show="choices.length > 0">
                         <div class="flex flex-col gap-4 items-center justify-center">
                             <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
@@ -261,6 +296,29 @@ export default {
                     <div v-else-if="drawerChosen">{{ drawer }} has chosen a prompt</div>
                     <div v-else>{{ drawer }} is choosing a prompt</div>
                     <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
+                    <div v-if="!isDrawer" class="flex flex-row justify-center">
+                        <form @submit.prevent="submitGuess">
+                            <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
+                            <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
+                        </form>
+                    </div>
+                    <div v-if="isDrawer" class="flex flex-col">
+                        <div class="flex gap-2 items-center" v-for="guess, author in guesses" :key="author">
+                            <div>{{ guess }}</div> <button class="p-2 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">close</button> <button class="p-2 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.FAR)">not close</button>
+                        </div>
+                    </div>
+                    <div v-else class="flex flex-col">
+                        <div
+                            v-for="{ guess, type } in hints" :key="guess"
+                            class="text-white"
+                            :class="{
+                                'text-red-600': type === HintTypes.FAR,
+                                'text-green-500': type === HintTypes.CLOSE
+                            }"
+                        >
+                            {{ `'${guess}' ${type}!` }}
+                        </div>
+                    </div>
                 </div>
 
             </div>
