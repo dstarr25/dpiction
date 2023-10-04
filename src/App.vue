@@ -278,46 +278,63 @@ export default {
                     </div>
                     <div>Time remaining: {{ timeRemaining }}</div>
                     <form @submit.prevent="submitPrompt">
-                        <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
-                        <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
+                        <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
+                        <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
                     </form>
                     
                 </div>
-                <div class="bg-gray-800 text-white flex flex-col items-start justify-start rounded-xl p-5" v-else-if="gameState === GameStates.DRAWING">
-                    <modal :show="choices.length > 0">
-                        <div class="flex flex-col gap-4 items-center justify-center">
-                            <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
-                            <div class="flex flex-row gap-2">
-                                <button type="button" class="p-4 bg-gray-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
+                    <div class="flex flex-col items-end bg-neutral-900 rounded-md">
+                        <modal :show="choices.length > 0">
+                            <div class="flex flex-col gap-4 items-center justify-center">
+                                <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
+                                <div class="flex flex-row gap-2">
+                                    <button type="button" class="p-4 bg-gray-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                                </div>
+                            </div>
+                        </modal>
+                        <div class="flex w-full justify-center items-center text-xl p-8">
+                            <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
+                            <div v-else-if="drawerChosen">{{ drawer }} is drawing...</div>
+                            <div v-else>{{ drawer }} is choosing a prompt</div>
+                        </div>
+                        <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
+                        <div v-if="!isDrawer" class="flex flex-col w-full">
+                            <div class="flex w-full p-8 pb-0">
+                                current guess: {{ guess }}
+                            </div>
+                            <div class="flex w-full justify-end items-center p-8">
+                                <form @submit.prevent="submitGuess">
+                                    <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
+                                    <button class="text-black bg-white rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
+                                </form>
                             </div>
                         </div>
-                    </modal>
-                    <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
-                    <div v-else-if="drawerChosen">{{ drawer }} has chosen a prompt</div>
-                    <div v-else>{{ drawer }} is choosing a prompt</div>
-                    <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
-                    <div v-if="!isDrawer" class="flex flex-row justify-center">
-                        <form @submit.prevent="submitGuess">
-                            <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
-                            <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
-                        </form>
                     </div>
                     <div v-if="isDrawer" class="flex flex-col">
                         <div class="flex gap-2 items-center" v-for="guess, author in guesses" :key="author">
-                            <div>{{ guess }}</div> <button class="p-2 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">close</button> <button class="p-2 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.FAR)">not close</button>
+                            <div>{{ guess }}</div> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">close</button> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.FAR)">not close</button>
                         </div>
                     </div>
-                    <div v-else class="flex flex-col">
-                        <div
-                            v-for="{ guess, type } in hints" :key="guess"
-                            class="text-white"
-                            :class="{
-                                'text-red-600': type === HintTypes.FAR,
-                                'text-green-500': type === HintTypes.CLOSE
-                            }"
+                    <div v-else class="flex flex-col flex-grow justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500">
+                        <transition-group
+                            enter-active-class="duration-500 ease-in-out"
+                            enter-from-class="opacity-0 translate-y-1/2"
+                            leave-active-class="duration-500 ease-in-out"
+                            leave-to-class="opacity-0 translate-y-1/2"
+
                         >
-                            {{ `'${guess}' ${type}!` }}
-                        </div>
+                            <div
+                                v-for="{ guess, type } in hints" :key="guess"
+                                class="text-white"
+                                :class="{
+                                    'text-red-600': type === HintTypes.FAR,
+                                    'text-green-500': type === HintTypes.CLOSE
+                                }"
+                            >
+                                {{ `'${guess}' ${type}!` }}
+                            </div>
+                        </transition-group>
                     </div>
                 </div>
 

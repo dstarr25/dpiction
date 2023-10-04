@@ -3,7 +3,7 @@
         name="fade"
         appear
     >
-        <div v-if="show" class="z-40 bg-gray-700 opacity-50 fixed inset-0" @click="$emit('close')"></div>
+        <div v-if="show" class="z-40 bg-gray-700 opacity-60 fixed inset-0" @click="$emit('close')"></div>
     </transition>
 
     <transition

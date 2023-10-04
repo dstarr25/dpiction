@@ -1,20 +1,21 @@
 <template>
     <div class="flex flex-col gap-4 justify-center items-center">
-        <canvas class="rounded-lg h-96 border-4 border-black" style="cursor: url(./src/assets/pb32.png), auto;image-rendering: pixelated; aspect-ratio: 4/3;" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
+        <canvas class="h-96 border-y-4 border-neutral-500" style="cursor: url(./src/assets/pb32.png), auto;image-rendering: pixelated; aspect-ratio: 4/3;" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
         <!-- <div class="fixed top-10 left-10 bg-white rounded p-10 text-black">{{ debugText }}</div> -->
-        <div v-if="isDrawer">
-            <div class="flex flex-row items-center gap-1">
+        <div v-if="isDrawer" class="w-full">
+            <div class="flex flex-row items-center gap-1 w-full justify-center">
                 <div
                     v-for="(color, index) in colorOptions"
                     :key="index"
                     @click.prevent="selectColor(color)"
+                    style="transition: all 0.3s ease-in-out" 
                     :style="{ backgroundColor: color }"
                     :class="{'scale-150': selectedColor === color}"
-                    class="w-10 h-10 rounded-full cursor-pointer transition-all"
+                    class="w-10 h-10 rounded-full cursor-pointer"
                 />
-                <div class="w-10 h-10 cursor-pointer flex justify-center items-center text-3xl text-black ml-4" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
+                <div class="w-10 h-10 cursor-pointer flex justify-center items-center text-3xl" style="transition: all 0.3s ease-in-out" :style="{ color: selectedColor }" v-on:click="fillCanvas()"><span class="material-symbols-outlined" style="font-size: inherit">format_color_fill</span></div>
             </div>
-            <div class="content">
+            <div class="content flex w-full justify-start">
                 <div class="equalizer">
                     <input type="range" v-model="sliderVal" max="100" @input="changeSlider">
                     <div class="number" />
@@ -257,7 +258,6 @@ input[type='range']::-webkit-slider-runnable-track,
 input[type='range']::-webkit-slider-thumb {
 	-webkit-appearance: none;
 }
-
 
 /*** Range Thumb***/
 
