@@ -61,7 +61,6 @@ export default {
         modal: TransitionModal
     },
     mounted() {
-        // something
     },
     computed: {
         urlGameId() {
@@ -77,6 +76,14 @@ export default {
         }
     },
     methods: {
+        syncElementHeights() {
+            console.log('started syncing')
+            const mainColumn = this.$refs.mainColumn as HTMLElement
+            const rightColumn = this.$refs.rightColumn as HTMLElement
+            if (!mainColumn || !rightColumn) return
+            rightColumn.style.height = mainColumn.offsetHeight + 'px';
+            console.log('finished syncing')
+        },
         startWebSocket(gameId: string) {
             this.socket = new WebSocket('ws://localhost:3000')
             this.socket.addEventListener('open', () => {
@@ -227,13 +234,19 @@ export default {
 
 <template>
     <!-- <DrawingCanvas /> -->
-    <div class="appContainer">
+    
+    <div class="appContainer ">
         <transition mode="out-in"
             enter-from-class="opacity-0"
             leave-to-class="opacity-0"
             enter-active-class="duration-300 ease-in-out"
             leave-active-class="duration-300 ease-in-out"
         >
+            <div class="flex h-10 gap-4">
+                <img src="./assets/thumbsup.png" class="h-8 cursor-pointer transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsup">
+                <img src="./assets/thumbsdown.png" class="h-8 cursor-pointer self-end transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsdown">
+            </div>
+
             <!-- enter name and join screen -->
             <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
                 <form @submit.prevent="joinGame">
@@ -311,18 +324,18 @@ export default {
                             </div>
                         </div>
                     </div>
-                    <div v-if="isDrawer" class="flex flex-col">
+                    <div v-if="isDrawer" class="flex flex-col w-full">
                         <div class="flex gap-2 items-center" v-for="guess, author in guesses" :key="author">
                             <div>{{ guess }}</div> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">close</button> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.FAR)">not close</button>
                         </div>
                     </div>
-                    <div v-else class="flex flex-col flex-grow justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500">
+                    <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 overflow-y-scroll">
                         <transition-group
                             enter-active-class="duration-500 ease-in-out"
                             enter-from-class="opacity-0 translate-y-1/2"
                             leave-active-class="duration-500 ease-in-out"
                             leave-to-class="opacity-0 translate-y-1/2"
-
+                            move-class="translate-y-1/2"
                         >
                             <div
                                 v-for="{ guess, type } in hints" :key="guess"

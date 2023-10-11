@@ -14,6 +14,7 @@
 	height: 100vh;
 	overflow: visible;
 	display: flex;
+    flex-direction: column;
 	align-items: center;
 	justify-content: center;
     background: radial-gradient(ellipse at bottom, #1b352a 0%, #090A0F 100%);
