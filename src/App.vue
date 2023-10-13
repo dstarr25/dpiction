@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
-import type { Hint, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
+import type { Hint, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
@@ -175,6 +175,16 @@ export default {
                 } else if (action === ToClientMessages.HINT) {
                     const data = json.data as Hint
                     this.hints.push(data)
+                } else if (action === ToClientMessages.END_ROUND) {
+                    const data = json.data as EndRoundDataToClient
+                    showSuccessMessage(`${data.winner} wins the round with guess '${data.guess}' The prompt was '${data.oldPrompt}' by author ${data.promptAuthor}`)
+                    this.drawer = data.drawer
+                    this.roundNum = data.roundNum
+                    this.players[data.winner].score = data.winnerScore
+                    this.players[data.promptAuthor].score = data.promptAuthorScore
+                    this.guess = ''
+                    this.guessEdit = ''
+                    this.hints = []
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -227,6 +237,12 @@ export default {
             const hintMessage = new SocketMessage(ToServerMessages.HINT, { gameId: this.gameId, guess, type, name: this.name })
             this.socket.send(JSON.stringify(hintMessage))
             showSuccessMessage(`Sent hint for guess '${guess}'!`)
+        },
+        selectWinner(guess: string, winner: string) {
+            if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || !this.isDrawer || winner === this.name) return
+            const selectWinnerMessage = new SocketMessage(ToServerMessages.SELECT_WINNER, { gameId: this.gameId, name: this.name, guess, winner })
+            this.socket.send(JSON.stringify(selectWinnerMessage))
+            console.log('sent select winner message!')
         }
     }
 }
@@ -242,10 +258,10 @@ export default {
             enter-active-class="duration-300 ease-in-out"
             leave-active-class="duration-300 ease-in-out"
         >
-            <div class="flex h-10 gap-4">
+            <!-- <div class="flex h-10 gap-4">
                 <img src="./assets/thumbsup.png" class="h-8 cursor-pointer transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsup">
                 <img src="./assets/thumbsdown.png" class="h-8 cursor-pointer self-end transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsdown">
-            </div>
+            </div> -->
 
             <!-- enter name and join screen -->
             <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
@@ -313,9 +329,7 @@ export default {
                         </div>
                         <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
                         <div v-if="!isDrawer" class="flex flex-col w-full">
-                            <div class="flex w-full p-8 pb-0">
-                                current guess: {{ guess }}
-                            </div>
+                            <div class="flex w-full p-8 pb-0">{{guess ? `current guess: ${guess}`: 'Enter your guess below:'}}</div>
                             <div class="flex w-full justify-end items-center p-8">
                                 <form @submit.prevent="submitGuess">
                                     <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
@@ -326,7 +340,10 @@ export default {
                     </div>
                     <div v-if="isDrawer" class="flex flex-col w-full">
                         <div class="flex gap-2 items-center" v-for="guess, author in guesses" :key="author">
-                            <div>{{ guess }}</div> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">close</button> <button class="px-2 py-1 bg-gray-700 rounded-md" @click="sendHint(guess, HintTypes.FAR)">not close</button>
+                            <div>{{ guess }}</div> 
+                            <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">✅</button> 
+                            <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.FAR)">❌</button>
+                            <button class="px-2 py-1 rounded-md" @click="selectWinner(guess, author.toString())">🥇</button>
                         </div>
                     </div>
                     <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 overflow-y-scroll">

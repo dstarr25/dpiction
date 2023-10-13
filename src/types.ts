@@ -20,7 +20,8 @@ export enum ToServerMessages {
     PROMPT = 'prompt', // someone writes a prompt
     START = 'start',
     CHOOSE_PROMPT = 'chooseprompt',
-    HINT = 'hint'
+    HINT = 'hint',
+    SELECT_WINNER = 'selectwinner',
 }
 
 export enum ToClientMessages {
@@ -37,7 +38,8 @@ export enum ToClientMessages {
     CHOICES = 'choices',
     TIME_REMAINING = 'timeremaining',
     DRAWER_CHOSEN = 'drawerchosen',
-    HINT = 'hint'
+    HINT = 'hint',
+    END_ROUND = 'endround',
 
 }
 
@@ -180,5 +182,16 @@ export enum HintTypes {
 export interface Hint {
     type: string,
     guess: string
+}
+
+export interface EndRoundDataToClient {
+    roundNum: number,
+    drawer: string,
+    promptAuthor: string,
+    winner: string,
+    promptAuthorScore: number,
+    winnerScore: number,
+    guess: string,
+    oldPrompt: string
 }
 
