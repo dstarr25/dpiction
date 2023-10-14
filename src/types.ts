@@ -22,6 +22,7 @@ export enum ToServerMessages {
     CHOOSE_PROMPT = 'chooseprompt',
     HINT = 'hint',
     SELECT_WINNER = 'selectwinner',
+    GET_CHOICES = 'getchoices'
 }
 
 export enum ToClientMessages {
@@ -195,3 +196,13 @@ export interface EndRoundDataToClient {
     oldPrompt: string
 }
 
+export interface RoundEndInfo {
+    winnerScore: number,
+    promptAuthorScore: number,
+    promptAuthor: string,
+    winner: string,
+    guess: string,
+    prompt: string,
+    step: number,
+    shown: boolean
+}

@@ -123,6 +123,13 @@ export default {
         //     const sizeScale = 0.8;
         //     canvas.style.cursor = `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="${rectSize * sizeScale}" height="${rectSize * sizeScale}"><rect width="${rectSize * sizeScale}" height="${rectSize * sizeScale}" fill="${this.selectedColor}"/></svg>') ${rectSize * shiftScale} ${rectSize * shiftScale}, crosshair`;
         // },
+        clearCanvas() {
+            if (!this.context) return;
+            const oldColor = this.context.fillStyle
+            this.context.fillStyle = '#ffffff'
+            this.context.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
+            this.context.fillStyle = oldColor
+        },
         fillCanvas() {
             if (!this.isDrawer || !this.context) return;
             this.context.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);

@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
-import type { Hint, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
+import type { Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
@@ -53,7 +53,8 @@ export default {
             drawerChosen: false,
             guessEdit: "",
             guess: "",
-            hints: [] as Hint[]
+            hints: [] as Hint[],
+            roundEndModal: { shown: false } as RoundEndInfo
         }
     },
     components: {
@@ -178,13 +179,46 @@ export default {
                 } else if (action === ToClientMessages.END_ROUND) {
                     const data = json.data as EndRoundDataToClient
                     showSuccessMessage(`${data.winner} wins the round with guess '${data.guess}' The prompt was '${data.oldPrompt}' by author ${data.promptAuthor}`)
-                    this.drawer = data.drawer
-                    this.roundNum = data.roundNum
-                    this.players[data.winner].score = data.winnerScore
-                    this.players[data.promptAuthor].score = data.promptAuthorScore
-                    this.guess = ''
-                    this.guessEdit = ''
-                    this.hints = []
+
+                    this.roundEndModal = {
+                        shown: true,
+                        winnerScore: this.players[data.winner].score,
+                        promptAuthorScore: this.players[data.promptAuthor].score,
+                        promptAuthor: data.promptAuthor,
+                        winner: data.winner,
+                        guess: data.guess,
+                        prompt: data.oldPrompt,
+                        step: 0
+                    }
+                    const delay = 3000
+                    setTimeout(() => {
+                        this.roundEndModal.step++
+                        setTimeout(() => {
+                            this.roundEndModal.step++
+                            setTimeout(() => {
+                                this.roundEndModal.winnerScore = data.winnerScore
+                                this.roundEndModal.promptAuthorScore = data.promptAuthorScore
+                                setTimeout(() => {
+                                    this.drawer = data.drawer
+                                    this.roundNum = data.roundNum
+                                    this.players[data.winner].score = data.winnerScore
+                                    this.players[data.promptAuthor].score = data.promptAuthorScore
+                                    this.guess = ''
+                                    this.guessEdit = ''
+                                    this.hints = []
+                                    this.drawerChosen = false
+                                    this.prompt = {} as Prompt
+                                    this.guesses = {}
+                                    const canvas = this.$refs.canvas as typeof DrawingCanvas
+                                    canvas.clearCanvas()
+                                    // this.roundEndModal = { shown: false } as RoundEndInfo
+                                    console.log('sending socket message!')
+                                    // this.socket?.send(JSON.stringify(new SocketMessage(ToServerMessages.GET_CHOICES, {})))
+                                }, delay)
+                            }, delay / 2)
+                        }, delay)
+                    }, delay)                                   
+                    
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -366,6 +400,61 @@ export default {
                             </div>
                         </transition-group>
                     </div>
+                    <modal :show="roundEndModal.shown">
+                        <div class="h-full flex flex-col items-center">
+                            <transition-group
+                                enter-active-class="duration-500 ease-in-out"
+                                enter-from-class="opacity-0"
+                                leave-active-class="duration-500 ease-in-out"
+                                leave-to-class="opacity-0"
+                            >
+                                <div v-if="roundEndModal.step >= 0" class="flex flex-col items-center">
+                                    <div>the prompt was...</div>
+                                    <div class="flex flex-col items-center">
+                                        <div>"{{ roundEndModal.prompt }}"</div>
+                                        <div class="self-end">-- {{ roundEndModal.promptAuthor }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="roundEndModal.step >= 1" class="flex flex-col items-center">
+                                    <div>the winning guess was...</div>
+                                    <div class="flex flex-col items-center">
+                                        <div>"{{ roundEndModal.guess }}"</div>
+                                        <div class="self-end">-- {{ roundEndModal.winner }}</div>
+                                    </div>
+                                </div>
+                                <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center w-full">
+                                    <div>updated scores:</div>
+                                    <div class="flex flex-col self-start">
+                                        <div class="flex justify-between gap-4">
+                                            <div>{{ roundEndModal.promptAuthor }}</div>
+                                            <transition
+                                                mode="out-in"
+                                                enter-active-class="duration-400 ease-in-out"
+                                                leave-active-class="duration-400 ease-in-out"
+                                                enter-from-class="-translate-y-10 opacity-0"
+                                                leave-to-class="translate-y-10 opacity-0"
+                                            >
+                                                <div :key="roundEndModal.promptAuthorScore">{{ roundEndModal.promptAuthorScore }}</div>
+                                            </transition>
+                                        
+                                        </div>
+                                        <div class="w-full flex justify-between">
+                                            <div :key="roundEndModal.winnerScore">{{ roundEndModal.winner }}</div>
+                                            <transition
+                                                mode="out-in"
+                                                enter-active-class="duration-400 ease-in-out"
+                                                leave-active-class="duration-400 ease-in-out"
+                                                enter-from-class="-translate-y-10 opacity-0"
+                                                leave-to-class="translate-y-10 opacity-0"
+                                            >
+                                                <div>{{ roundEndModal.winnerScore }}</div>
+                                            </transition>
+                                        </div>
+                                    </div>
+                                </div>
+                            </transition-group>
+                        </div>
+                    </modal>
                 </div>
 
             </div>
