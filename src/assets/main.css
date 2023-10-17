@@ -25,6 +25,6 @@
 	box-sizing: border-box;
     margin: 0;
     padding: 0;
-	transition: all 0s ease 0s;
+	transition-property: all;
 	font-family: 'Gochi Hand', Arial, serif;
 }

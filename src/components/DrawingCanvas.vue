@@ -1,6 +1,6 @@
 <template>
     <div class="flex flex-col gap-4 justify-center items-center">
-        <canvas class="h-96 border-y-4 border-neutral-500" style="cursor: url(./src/assets/pb32.png), auto;image-rendering: pixelated; aspect-ratio: 4/3;" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
+        <canvas class="h-96 border-y-4 border-neutral-500" style="image-rendering: pixelated; aspect-ratio: 4/3;" :style="cursorStyle" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
         <!-- <div class="fixed top-10 left-10 bg-white rounded p-10 text-black">{{ debugText }}</div> -->
         <div v-if="isDrawer" class="w-full">
             <div class="flex flex-row items-center gap-1 w-full justify-center">
@@ -58,6 +58,11 @@ export default {
             // isDrawer: true,
             debugText: ""
         };
+    },
+    computed: {
+        cursorStyle() {
+            return this.isDrawer ? { cursor: `url(./src/assets/pb32.png), auto` } : {}
+        }
     },
     mounted() {
         // Use type assertion to specify the type of this.$refs.canvas

@@ -54,7 +54,8 @@ export default {
             guessEdit: "",
             guess: "",
             hints: [] as Hint[],
-            roundEndModal: { shown: false } as RoundEndInfo
+            roundEndModal: { shown: false } as RoundEndInfo,
+            showchoices: false
         }
     },
     components: {
@@ -142,6 +143,7 @@ export default {
                 } else if (action === ToClientMessages.CHOICES) {
                     const data = json.data as Prompt[]
                     this.choices = data
+                    if (this.roundNum <= 1) this.showchoices = true
 
                 } else if (action === ToClientMessages.TIME_REMAINING) {
                     const data = json.data as TimeRemainingDataToClient
@@ -180,6 +182,7 @@ export default {
                     const data = json.data as EndRoundDataToClient
                     showSuccessMessage(`${data.winner} wins the round with guess '${data.guess}' The prompt was '${data.oldPrompt}' by author ${data.promptAuthor}`)
 
+                    this.showchoices = false
                     this.roundEndModal = {
                         shown: true,
                         winnerScore: this.players[data.winner].score,
@@ -199,21 +202,24 @@ export default {
                                 this.roundEndModal.winnerScore = data.winnerScore
                                 this.roundEndModal.promptAuthorScore = data.promptAuthorScore
                                 setTimeout(() => {
-                                    this.drawer = data.drawer
-                                    this.roundNum = data.roundNum
-                                    this.players[data.winner].score = data.winnerScore
-                                    this.players[data.promptAuthor].score = data.promptAuthorScore
-                                    this.guess = ''
-                                    this.guessEdit = ''
-                                    this.hints = []
-                                    this.drawerChosen = false
-                                    this.prompt = {} as Prompt
-                                    this.guesses = {}
-                                    const canvas = this.$refs.canvas as typeof DrawingCanvas
-                                    canvas.clearCanvas()
-                                    // this.roundEndModal = { shown: false } as RoundEndInfo
-                                    console.log('sending socket message!')
-                                    // this.socket?.send(JSON.stringify(new SocketMessage(ToServerMessages.GET_CHOICES, {})))
+                                    this.roundEndModal.step = -1
+                                    setTimeout(() => {
+                                        this.drawer = data.drawer
+                                        this.roundNum = data.roundNum
+                                        this.players[data.winner].score = data.winnerScore
+                                        this.players[data.promptAuthor].score = data.promptAuthorScore
+                                        this.guess = ''
+                                        this.guessEdit = ''
+                                        this.hints = []
+                                        this.drawerChosen = false
+                                        this.prompt = {} as Prompt
+                                        this.guesses = {}
+                                        const canvas = this.$refs.canvas as typeof DrawingCanvas
+                                        canvas.clearCanvas()
+                                        this.roundEndModal = { shown: false } as RoundEndInfo
+                                        console.log('sending socket message!')
+                                        this.showchoices = true
+                                    }, delay / 2)
                                 }, delay)
                             }, delay / 2)
                         }, delay)
@@ -256,10 +262,12 @@ export default {
             if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId) return
             this.prompt = prompt
             this.choices = []
+            this.showchoices = false
             const promptChoiceMessage = new SocketMessage(ToServerMessages.CHOOSE_PROMPT, {name: this.name, gameId: this.gameId, prompt})
             this.socket.send(JSON.stringify(promptChoiceMessage))
         },
         submitGuess() {
+            console.log('here')
             if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || this.isDrawer) return
             const guessMessage = new SocketMessage(ToServerMessages.GUESS, { name: this.name, guess: this.guessEdit, gameId: this.gameId })
             this.socket.send(JSON.stringify(guessMessage))
@@ -284,7 +292,6 @@ export default {
 
 <template>
     <!-- <DrawingCanvas /> -->
-    
     <div class="appContainer ">
         <transition mode="out-in"
             enter-from-class="opacity-0"
@@ -348,7 +355,7 @@ export default {
                 </div>
                 <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
                     <div class="flex flex-col items-end bg-neutral-900 rounded-md">
-                        <modal :show="choices.length > 0">
+                        <modal :show="choices.length > 0 && showchoices">
                             <div class="flex flex-col gap-4 items-center justify-center">
                                 <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
                                 <div class="flex flex-row gap-2">
@@ -386,7 +393,7 @@ export default {
                             enter-from-class="opacity-0 translate-y-1/2"
                             leave-active-class="duration-500 ease-in-out"
                             leave-to-class="opacity-0 translate-y-1/2"
-                            move-class="translate-y-1/2"
+                            move-class="duration-500 ease-in-out"
                         >
                             <div
                                 v-for="{ guess, type } in hints" :key="guess"
@@ -401,53 +408,54 @@ export default {
                         </transition-group>
                     </div>
                     <modal :show="roundEndModal.shown">
-                        <div class="h-full flex flex-col items-center">
+                        <div class="h-full flex flex-col items-center text-2xl gap-10 text-black font-normal">
                             <transition-group
-                                enter-active-class="duration-500 ease-in-out"
-                                enter-from-class="opacity-0"
-                                leave-active-class="duration-500 ease-in-out"
-                                leave-to-class="opacity-0"
+                                enter-active-class="duration-500 ease-in-out transition-all"
+                                enter-from-class="opacity-0 -translate-x-full"
+                                leave-active-class="duration-500 ease-in-out transition-all"
+                                leave-to-class="opacity-0 translate-x-full"
+                                move-class="duration-500 ease-in-out transition-all"
                             >
-                                <div v-if="roundEndModal.step >= 0" class="flex flex-col items-center">
-                                    <div>the prompt was...</div>
-                                    <div class="flex flex-col items-center">
+                                <div v-if="roundEndModal.step >= 0" class="flex flex-col gap-2 items-center endRoundModalNote">
+                                    <div class="">the prompt was...</div>
+                                    <div class="flex flex-col items-center text-neutral-800">
                                         <div>"{{ roundEndModal.prompt }}"</div>
-                                        <div class="self-end">-- {{ roundEndModal.promptAuthor }}</div>
+                                        <div class="self-end">— {{ roundEndModal.promptAuthor }}</div>
                                     </div>
                                 </div>
-                                <div v-if="roundEndModal.step >= 1" class="flex flex-col items-center">
+                                <div v-if="roundEndModal.step >= 1" class="flex flex-col gap-2 items-center endRoundModalNote">
                                     <div>the winning guess was...</div>
-                                    <div class="flex flex-col items-center">
+                                    <div class="flex flex-col items-center text-neutral-800">
                                         <div>"{{ roundEndModal.guess }}"</div>
-                                        <div class="self-end">-- {{ roundEndModal.winner }}</div>
+                                        <div class="self-end">— {{ roundEndModal.winner }}</div>
                                     </div>
                                 </div>
-                                <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center w-full">
+                                <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center gap-2 w-full endRoundModalNote">
                                     <div>updated scores:</div>
-                                    <div class="flex flex-col self-start">
-                                        <div class="flex justify-between gap-4">
-                                            <div>{{ roundEndModal.promptAuthor }}</div>
+                                    <div class="flex flex-col self-start text-neutral-800">
+                                        <div class="flex justify-between gap-8">
+                                            <div>{{ roundEndModal.promptAuthor }}:</div>
                                             <transition
                                                 mode="out-in"
-                                                enter-active-class="duration-400 ease-in-out"
-                                                leave-active-class="duration-400 ease-in-out"
-                                                enter-from-class="-translate-y-10 opacity-0"
-                                                leave-to-class="translate-y-10 opacity-0"
+                                                enter-active-class="duration-1000 ease-in-out transition-all"
+                                                leave-active-class="duration-400 ease-in-out transition-all"
+                                                enter-from-class="-translate-x-10 opacity-0"
+                                                leave-to-class="translate-x-10 opacity-0"
                                             >
                                                 <div :key="roundEndModal.promptAuthorScore">{{ roundEndModal.promptAuthorScore }}</div>
                                             </transition>
                                         
                                         </div>
                                         <div class="w-full flex justify-between">
-                                            <div :key="roundEndModal.winnerScore">{{ roundEndModal.winner }}</div>
+                                            <div >{{ roundEndModal.winner }}:</div>
                                             <transition
                                                 mode="out-in"
-                                                enter-active-class="duration-400 ease-in-out"
-                                                leave-active-class="duration-400 ease-in-out"
-                                                enter-from-class="-translate-y-10 opacity-0"
-                                                leave-to-class="translate-y-10 opacity-0"
+                                                enter-active-class="duration-1000 ease-in-out transition-all"
+                                                leave-active-class="duration-400 ease-in-out transition-all"
+                                                enter-from-class="translate-x-10 opacity-0"
+                                                leave-to-class="-translate-x-10 opacity-0"
                                             >
-                                                <div>{{ roundEndModal.winnerScore }}</div>
+                                                <div :key="roundEndModal.winnerScore">{{ roundEndModal.winnerScore }}</div>
                                             </transition>
                                         </div>
                                     </div>
@@ -463,5 +471,13 @@ export default {
 </template>
 
 <style scoped>
-
+.endRoundModalNote {
+    padding: 30px;
+    border-radius: 30px;
+    top: 0px;
+    left: 0px;
+    border: 8px solid black;
+    background-color: white;
+    box-shadow: 0.5rem 0.5rem #555;
+}
 </style>
