@@ -1,5 +1,5 @@
-const cWidth = 200;
-const cHeight = 150;
+const cWidth = 200
+const cHeight = 150
 
 export class CanvasData {
     width: number
@@ -41,6 +41,7 @@ export enum ToClientMessages {
     DRAWER_CHOSEN = 'drawerchosen',
     HINT = 'hint',
     END_ROUND = 'endround',
+    GAME_OVER = 'gameover',
 
 }
 
@@ -61,7 +62,8 @@ export const CodeMessages = {
 export enum GameStates {
     OPEN = 'open',
     PROMPTS = 'prompts',
-    DRAWING = 'drawing'
+    DRAWING = 'drawing',
+    OVER = 'over',
 }
 
 export interface Guess {
@@ -153,6 +155,10 @@ export interface JoinResponse {
 
 export interface ErrorDataToClient {
     error: string,
+}
+
+export interface StartDataToClient {
+    promptsPP: number,
 }
 
 export interface NewRoundDataToClient {

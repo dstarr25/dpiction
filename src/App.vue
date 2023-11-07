@@ -1,6 +1,6 @@
 <script lang="ts">
 import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
-import type { Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
+import type { StartDataToClient, Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
 import loadingImage from './assets/loading.png'
@@ -55,7 +55,10 @@ export default {
             guess: "",
             hints: [] as Hint[],
             roundEndModal: { shown: false } as RoundEndInfo,
-            showchoices: false
+            showchoices: false,
+            promptsPP: 0,
+            finalScores: [] as { name: string, score: number }[],
+            totalDrawings: 3,
         }
     },
     components: {
@@ -78,14 +81,6 @@ export default {
         }
     },
     methods: {
-        syncElementHeights() {
-            console.log('started syncing')
-            const mainColumn = this.$refs.mainColumn as HTMLElement
-            const rightColumn = this.$refs.rightColumn as HTMLElement
-            if (!mainColumn || !rightColumn) return
-            rightColumn.style.height = mainColumn.offsetHeight + 'px';
-            console.log('finished syncing')
-        },
         startWebSocket(gameId: string) {
             this.socket = new WebSocket('ws://localhost:3000')
             this.socket.addEventListener('open', () => {
@@ -101,7 +96,7 @@ export default {
             })
             this.socket.addEventListener("message", event => {
                 console.log(`Received message: ${event.data}`)
-                const json = JSON.parse(event.data) as SocketMessage
+                const json: SocketMessage = JSON.parse(event.data)
                 const action = json.action
                 if (action === ToClientMessages.JOIN_SUCCESS) {
                     const data = json.data as JoinSuccessData
@@ -124,7 +119,9 @@ export default {
                     const data = json.data as ErrorDataToClient
                     showErrorMessage(data.error)
                 } else if (action === ToClientMessages.START) {
-                    // data should be empty obj, don't do anything with it
+                    // data should be empty obj, don't do anything with it. JK NOW IT HAS PROMPT NUMBER
+                    const data = json.data as StartDataToClient
+                    this.promptsPP = data.promptsPP
                     this.gameState = GameStates.PROMPTS
                 } else if (action === ToClientMessages.PROMPT_SUCCESS) {
                     const data = json.data as PromptSuccessDataToClient
@@ -225,6 +222,10 @@ export default {
                         }, delay)
                     }, delay)                                   
                     
+                } else if (action === ToClientMessages.GAME_OVER) {
+                    const data = json.data as { name: string, score: number }[]
+                    this.gameState = GameStates.OVER
+                    this.finalScores = data
                 }
             })
             this.socket.addEventListener("close", (event) => {
@@ -249,7 +250,7 @@ export default {
         startGame() {
             if (!this.socket || this.admin !== this.name || !this.gameId) return // cuz they're trolling
             // send start game message to server
-            const startMessage = new SocketMessage(ToServerMessages.START, { name: this.name, gameId: this.gameId })
+            const startMessage = new SocketMessage(ToServerMessages.START, { name: this.name, gameId: this.gameId, rounds: this.totalDrawings })
             this.socket.send(JSON.stringify(startMessage))
         },
         submitPrompt() {
@@ -326,6 +327,15 @@ export default {
                     <div class="flex flex-row gap-2">
                         <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
                     </div>
+                    <div v-if="name === admin" class="flex justify-end w-full">
+                        <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-4 border-black text-black">
+                            <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6">{{ totalDrawings }}</span></div>
+                            <div class="flex flex-col items-center">
+                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
+                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings--">-</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex w-full flex-row justify-end items-center">
                         <transition mode="out-in"
                             enter-active-class="duration-300 ease-in-out"
@@ -346,7 +356,6 @@ export default {
                         The author of a prompt will receive points when their prompt is chosen, 
                         so make your prompts something you would want to draw!
                     </div>
-                    <div>Time remaining: {{ timeRemaining }}</div>
                     <form @submit.prevent="submitPrompt">
                         <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
                         <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
@@ -354,7 +363,7 @@ export default {
                     
                 </div>
                 <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
-                    <div class="flex flex-col items-end bg-neutral-900 rounded-md">
+                    <div class="flex flex-col items-end bg-neutral-900 rounded-md ">
                         <modal :show="choices.length > 0 && showchoices">
                             <div class="flex flex-col gap-4 items-center justify-center">
                                 <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
@@ -380,14 +389,14 @@ export default {
                         </div>
                     </div>
                     <div v-if="isDrawer" class="flex flex-col w-full">
-                        <div class="flex gap-2 items-center" v-for="guess, author in guesses" :key="author">
+                        <div class="flex gap-2 items-center" v-for="(guess, author) in guesses" :key="author">
                             <div>{{ guess }}</div> 
                             <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">✅</button> 
                             <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.FAR)">❌</button>
                             <button class="px-2 py-1 rounded-md" @click="selectWinner(guess, author.toString())">🥇</button>
                         </div>
                     </div>
-                    <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 overflow-y-scroll">
+                    <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 self-stretch overflow-y-scroll">
                         <transition-group
                             enter-active-class="duration-500 ease-in-out"
                             enter-from-class="opacity-0 translate-y-1/2"
