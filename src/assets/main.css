@@ -17,8 +17,6 @@
     flex-direction: column;
 	align-items: center;
 	justify-content: center;
-    background: radial-gradient(ellipse at bottom, #1b352a 0%, #090A0F 100%);
-    background-repeat: repeat;
 }
 
 *, *:before, *:after {
@@ -29,3 +27,9 @@
 	font-family: 'Itim', cursive;
 }
 
+body {
+    background-size: 40px 40px;
+    background-image:
+        linear-gradient(to right, grey 1px, transparent 1px),
+        linear-gradient(to bottom, grey 1px, transparent 1px);
+}

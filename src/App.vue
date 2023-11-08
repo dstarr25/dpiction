@@ -41,14 +41,13 @@ export default {
             admin: '',
             name: '',
             gameId: '',
-            gameState: '',
+            gameState: GameStates.OVER,
             loading: false,
             promptEdit: "",
             roundNum: -1,
             drawer: "",
             choices: [] as Prompt[],
             prompt: {} as Prompt,
-            timeRemaining: -1,
             showChoiceModal: false,
             drawerChosen: false,
             guessEdit: "",
@@ -100,6 +99,7 @@ export default {
                 const action = json.action
                 if (action === ToClientMessages.JOIN_SUCCESS) {
                     const data = json.data as JoinSuccessData
+                    this.resetData()
                     data.players.forEach((name) => {
                         this.players[name] = new Player(name)
                     })
@@ -144,7 +144,7 @@ export default {
 
                 } else if (action === ToClientMessages.TIME_REMAINING) {
                     const data = json.data as TimeRemainingDataToClient
-                    this.timeRemaining = data.timeRemaining
+                    // this.timeRemaining = data.timeRemaining
                 } else if (action === ToClientMessages.DRAWER_CHOSEN) {
                     this.drawerChosen = true
                 } else if (action === ToClientMessages.DRAW) {
@@ -241,11 +241,28 @@ export default {
             this.startWebSocket(id)
         },
         resetData() {
-            this.players = { }
+            this.players = {}
+            this.guesses = {}
             this.admin = ''
             this.name = ''
             this.gameId = ''
             this.loading = false
+            this.gameState = GameStates.OPEN
+            this.promptEdit = ''
+            this.roundNum = -1
+            this.drawer = ''
+            this.choices = []
+            this.prompt = {} as Prompt
+            this.showChoiceModal = false
+            this.drawerChosen = false
+            this.guessEdit = ''
+            this.guess = ''
+            this.hints = []
+            this.roundEndModal = { shown: false } as RoundEndInfo
+            this.showchoices = false
+            this.promptsPP = 0
+            this.finalScores = [] as { name: string, score: number }[]
+            this.totalDrawings = 3
         },
         startGame() {
             if (!this.socket || this.admin !== this.name || !this.gameId) return // cuz they're trolling
@@ -286,6 +303,11 @@ export default {
             const selectWinnerMessage = new SocketMessage(ToServerMessages.SELECT_WINNER, { gameId: this.gameId, name: this.name, guess, winner })
             this.socket.send(JSON.stringify(selectWinnerMessage))
             console.log('sent select winner message!')
+        },
+        playAgain() {
+            if (!this.socket || this.gameState !== GameStates.OVER || !this.gameId || this.admin !== this.name) return
+            const playAgainMessage = new SocketMessage(ToServerMessages.PLAY_AGAIN, { gameId: this.gameId, name: this.name })
+            this.socket.send(JSON.stringify(playAgainMessage))
         }
     }
 }
@@ -307,9 +329,9 @@ export default {
 
             <!-- enter name and join screen -->
             <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
-                <form @submit.prevent="joinGame">
-                    <input class="rounded-l-md border-r-2 border-black outline-none p-2" type="text" placeholder="name" v-model="name">
-                    <button class="bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
+                <form @submit.prevent="joinGame" class="border-4 border-black rounded-lg overflow-hidden">
+                    <input class="border-r border-black outline-none p-2" type="text" placeholder="name" v-model="name">
+                    <button class="bg-white border-l border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
                 </form>
             </div> 
 
@@ -321,7 +343,7 @@ export default {
             <!-- in the game screen -->
             <div v-else class="w-full h-full flex justify-center items-center flex-col">
                 
-                <div v-if="gameState === GameStates.OPEN" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                <div v-if="gameState === GameStates.OPEN" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
                     gameId: {{ gameId }}
                     <div>Players:</div>
                     <div class="flex flex-row gap-2">
@@ -329,10 +351,10 @@ export default {
                     </div>
                     <div v-if="name === admin" class="flex justify-end w-full">
                         <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-4 border-black text-black">
-                            <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6">{{ totalDrawings }}</span></div>
+                            <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
                             <div class="flex flex-col items-center">
                                 <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
-                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings--">-</button>
+                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings -= totalDrawings > 0 ? 1 : 0">-</button>
                             </div>
                         </div>
                     </div>
@@ -349,7 +371,7 @@ export default {
                     </div>
                 </div>
 
-                <div v-else-if="gameState === GameStates.PROMPTS" class="bg-gray-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
                     <div>You have now begun the prompting stage of the game.</div>
                     <div>
                         Each drawer will select a prompt from a group of prompts written by other players. 
@@ -358,7 +380,7 @@ export default {
                     </div>
                     <form @submit.prevent="submitPrompt">
                         <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
-                        <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
+                        <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
                     </form>
                     
                 </div>
@@ -368,7 +390,7 @@ export default {
                             <div class="flex flex-col gap-4 items-center justify-center">
                                 <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
                                 <div class="flex flex-row gap-2">
-                                    <button type="button" class="p-4 bg-gray-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                                    <button type="button" class="p-4 bg-neutral-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
                                 </div>
                             </div>
                         </modal>
@@ -383,7 +405,7 @@ export default {
                             <div class="flex w-full justify-end items-center p-8">
                                 <form @submit.prevent="submitGuess">
                                     <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
-                                    <button class="text-black bg-white rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">submit</button>
+                                    <button class="text-black bg-white 4545rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
                                 </form>
                             </div>
                         </div>
@@ -472,6 +494,38 @@ export default {
                             </transition-group>
                         </div>
                     </modal>
+                </div>
+                <div v-else-if="gameState === GameStates.OVER" class="bg-neutral-800 bg-opacity-80 w-3/6 text-black text-2xl flex flex-col gap-4 items-center justify-start rounded-2xl p-4 pt-12">
+                    <div class="font-bold text-3xl text-white">GAME OVER</div>
+                    <div class="mt-2 text-white">Here are the final scores:</div>
+                    <div class="w-3/4 mt-8 border-4 border-black rounded-xl overflow-hidden">
+                        <table class="w-full">
+                            <tr class="py-10 bg-white">
+                                <th class="w-1/6 py-1"></th>
+                                <th class="py-1 border-l border-neutral-600">Player</th>
+                                <th class="w-1/6 py-1 border-l border-neutral-600">Score</th>
+                            </tr>
+                            <tr 
+                                v-for="(score, i) in finalScores" 
+                                :key="i" 
+                                class=""
+                                :class="{'bg-neutral-100': i % 2 === 0, 'bg-white': i % 2 === 1}"
+                            >
+                                <td class="text-center text-neutral-600">{{ i + 1 }}</td>
+                                <td class="text-left border-l border-neutral-600 px-4">{{ score.name }}</td>
+                                <td class="text-center border-l border-neutral-600">{{ score.score }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                    <div class="w-full flex justify-end">
+                        <button 
+                            type="button" 
+                            class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black hover:-translate-x-1 hover:-translate-y-1 transition-all"
+                            @click="playAgain"
+                        >
+                            play again
+                        </button>
+                    </div>
                 </div>
 
             </div>

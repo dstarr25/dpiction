@@ -22,7 +22,8 @@ export enum ToServerMessages {
     CHOOSE_PROMPT = 'chooseprompt',
     HINT = 'hint',
     SELECT_WINNER = 'selectwinner',
-    GET_CHOICES = 'getchoices'
+    GET_CHOICES = 'getchoices',
+    PLAY_AGAIN = 'playagain',
 }
 
 export enum ToClientMessages {
