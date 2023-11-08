@@ -200,7 +200,8 @@ export interface EndRoundDataToClient {
     promptAuthorScore: number,
     winnerScore: number,
     guess: string,
-    oldPrompt: string
+    oldPrompt: string,
+    over: boolean | undefined,
 }
 
 export interface RoundEndInfo {

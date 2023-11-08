@@ -99,13 +99,13 @@ export default {
                 const action = json.action
                 if (action === ToClientMessages.JOIN_SUCCESS) {
                     const data = json.data as JoinSuccessData
-                    this.resetData()
+                    this.players = {}
                     data.players.forEach((name) => {
                         this.players[name] = new Player(name)
                     })
                     this.admin = data.admin
                     this.gameId = data.gameId
-                    this.gameState = this.GameStates.OPEN
+                    this.gameState = GameStates.OPEN
                     this.loading = false
                 } else if (action === ToClientMessages.JOIN) {
                     const data = json.data as JoinDataToClient
@@ -129,7 +129,7 @@ export default {
 
                 } else if (action === ToClientMessages.NEW_ROUND) {
                     const data = json.data as NewRoundDataToClient
-                    this.gameState = this.GameStates.DRAWING
+                    this.gameState = GameStates.DRAWING
                     this.roundNum = data.roundNum
                     this.drawer = data.drawer
                     this.drawerChosen = false
@@ -177,8 +177,6 @@ export default {
                     this.hints.push(data)
                 } else if (action === ToClientMessages.END_ROUND) {
                     const data = json.data as EndRoundDataToClient
-                    showSuccessMessage(`${data.winner} wins the round with guess '${data.guess}' The prompt was '${data.oldPrompt}' by author ${data.promptAuthor}`)
-
                     this.showchoices = false
                     this.roundEndModal = {
                         shown: true,
@@ -214,8 +212,8 @@ export default {
                                         const canvas = this.$refs.canvas as typeof DrawingCanvas
                                         canvas.clearCanvas()
                                         this.roundEndModal = { shown: false } as RoundEndInfo
-                                        console.log('sending socket message!')
                                         this.showchoices = true
+                                        if (data.over) this.gameState = GameStates.OVER
                                     }, delay / 2)
                                 }, delay)
                             }, delay / 2)
@@ -224,7 +222,7 @@ export default {
                     
                 } else if (action === ToClientMessages.GAME_OVER) {
                     const data = json.data as { name: string, score: number }[]
-                    this.gameState = GameStates.OVER
+                    // this.gameState = GameStates.OVER // this is now done when the round ends, this message just transfers scores
                     this.finalScores = data
                 }
             })
@@ -315,7 +313,7 @@ export default {
 
 <template>
     <!-- <DrawingCanvas /> -->
-    <div class="appContainer ">
+    <div class="appContainer">
         <transition mode="out-in"
             enter-from-class="opacity-0"
             leave-to-class="opacity-0"
@@ -341,194 +339,192 @@ export default {
             </div>
 
             <!-- in the game screen -->
-            <div v-else class="w-full h-full flex justify-center items-center flex-col">
                 
-                <div v-if="gameState === GameStates.OPEN" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
-                    gameId: {{ gameId }}
-                    <div>Players:</div>
-                    <div class="flex flex-row gap-2">
-                        <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
-                    </div>
-                    <div v-if="name === admin" class="flex justify-end w-full">
-                        <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-4 border-black text-black">
-                            <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
-                            <div class="flex flex-col items-center">
-                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
-                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings -= totalDrawings > 0 ? 1 : 0">-</button>
-                            </div>
+            <div v-else-if="gameState === GameStates.OPEN" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                gameId: {{ gameId }}
+                <div>Players:</div>
+                <div class="flex flex-row gap-2">
+                    <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
+                </div>
+                <div v-if="name === admin" class="flex justify-end w-full">
+                    <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-4 border-black text-black">
+                        <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
+                        <div class="flex flex-col items-center">
+                            <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
+                            <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings -= totalDrawings > 0 ? 1 : 0">-</button>
                         </div>
                     </div>
-                    <div class="flex w-full flex-row justify-end items-center">
-                        <transition mode="out-in"
-                            enter-active-class="duration-300 ease-in-out"
-                            enter-from-class="opacity-0"
-                            leave-active-class="duration-300 ease-in-out"
-                            leave-to-class="opacity-0"
-                        >
-                            <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
-                            <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for admin to start game...</div>
-                        </transition>
-                    </div>
                 </div>
+                <div class="flex w-full flex-row justify-end items-center">
+                    <transition mode="out-in"
+                        enter-active-class="duration-300 ease-in-out"
+                        enter-from-class="opacity-0"
+                        leave-active-class="duration-300 ease-in-out"
+                        leave-to-class="opacity-0"
+                    >
+                        <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
+                        <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for admin to start game...</div>
+                    </transition>
+                </div>
+            </div>
 
-                <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
-                    <div>You have now begun the prompting stage of the game.</div>
-                    <div>
-                        Each drawer will select a prompt from a group of prompts written by other players. 
-                        The author of a prompt will receive points when their prompt is chosen, 
-                        so make your prompts something you would want to draw!
-                    </div>
-                    <form @submit.prevent="submitPrompt">
-                        <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
-                        <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
-                    </form>
-                    
+            <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
+                <div>You have now begun the prompting stage of the game.</div>
+                <div>
+                    Each drawer will select a prompt from a group of prompts written by other players. 
+                    The author of a prompt will receive points when their prompt is chosen, 
+                    so make your prompts something you would want to draw!
                 </div>
-                <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
-                    <div class="flex flex-col items-end bg-neutral-900 rounded-md ">
-                        <modal :show="choices.length > 0 && showchoices">
-                            <div class="flex flex-col gap-4 items-center justify-center">
-                                <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
-                                <div class="flex flex-row gap-2">
-                                    <button type="button" class="p-4 bg-neutral-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                <form @submit.prevent="submitPrompt">
+                    <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
+                    <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
+                </form>
+                
+            </div>
+            <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
+                <div class="flex flex-col items-end bg-neutral-900 rounded-md ">
+                    <modal :show="choices.length > 0 && showchoices">
+                        <div class="flex flex-col gap-4 items-center justify-center">
+                            <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
+                            <div class="flex flex-row gap-2">
+                                <button type="button" class="p-4 bg-neutral-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
+                            </div>
+                        </div>
+                    </modal>
+                    <div class="flex w-full justify-center items-center text-xl p-8">
+                        <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
+                        <div v-else-if="drawerChosen">{{ drawer }} is drawing...</div>
+                        <div v-else>{{ drawer }} is choosing a prompt</div>
+                    </div>
+                    <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
+                    <div v-if="!isDrawer" class="flex flex-col w-full">
+                        <div class="flex w-full p-8 pb-0">{{guess ? `current guess: ${guess}`: 'Enter your guess below:'}}</div>
+                        <div class="flex w-full justify-end items-center p-8">
+                            <form @submit.prevent="submitGuess">
+                                <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
+                                <button class="text-black bg-white 4545rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div v-if="isDrawer" class="flex flex-col w-full">
+                    <div class="flex gap-2 items-center" v-for="(guess, author) in guesses" :key="author">
+                        <div>{{ guess }}</div> 
+                        <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">✅</button> 
+                        <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.FAR)">❌</button>
+                        <button class="px-2 py-1 rounded-md" @click="selectWinner(guess, author.toString())">🥇</button>
+                    </div>
+                </div>
+                <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 self-stretch overflow-y-scroll">
+                    <transition-group
+                        enter-active-class="duration-500 ease-in-out"
+                        enter-from-class="opacity-0 translate-y-1/2"
+                        leave-active-class="duration-500 ease-in-out"
+                        leave-to-class="opacity-0 translate-y-1/2"
+                        move-class="duration-500 ease-in-out"
+                    >
+                        <div
+                            v-for="{ guess, type } in hints" :key="guess"
+                            class="text-white"
+                            :class="{
+                                'text-red-600': type === HintTypes.FAR,
+                                'text-green-500': type === HintTypes.CLOSE
+                            }"
+                        >
+                            {{ `'${guess}' ${type}!` }}
+                        </div>
+                    </transition-group>
+                </div>
+                <modal :show="roundEndModal.shown">
+                    <div class="h-full flex flex-col items-center text-2xl gap-10 text-black font-normal">
+                        <transition-group
+                            enter-active-class="duration-500 ease-in-out transition-all"
+                            enter-from-class="opacity-0 -translate-x-full"
+                            leave-active-class="duration-500 ease-in-out transition-all"
+                            leave-to-class="opacity-0 translate-x-full"
+                            move-class="duration-500 ease-in-out transition-all"
+                        >
+                            <div v-if="roundEndModal.step >= 0" class="flex flex-col gap-2 items-center endRoundModalNote">
+                                <div class="">the prompt was...</div>
+                                <div class="flex flex-col items-center text-neutral-800">
+                                    <div>"{{ roundEndModal.prompt }}"</div>
+                                    <div class="self-end">— {{ roundEndModal.promptAuthor }}</div>
                                 </div>
                             </div>
-                        </modal>
-                        <div class="flex w-full justify-center items-center text-xl p-8">
-                            <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
-                            <div v-else-if="drawerChosen">{{ drawer }} is drawing...</div>
-                            <div v-else>{{ drawer }} is choosing a prompt</div>
-                        </div>
-                        <DrawingCanvas ref="canvas" :game-id="gameId" :name="name" :socket="socket" :choices="choices" :prompt="prompt" :isDrawer="isDrawer" @choosePrompt="choosePrompt"  />
-                        <div v-if="!isDrawer" class="flex flex-col w-full">
-                            <div class="flex w-full p-8 pb-0">{{guess ? `current guess: ${guess}`: 'Enter your guess below:'}}</div>
-                            <div class="flex w-full justify-end items-center p-8">
-                                <form @submit.prevent="submitGuess">
-                                    <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
-                                    <button class="text-black bg-white 4545rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
-                                </form>
+                            <div v-if="roundEndModal.step >= 1" class="flex flex-col gap-2 items-center endRoundModalNote">
+                                <div>the winning guess was...</div>
+                                <div class="flex flex-col items-center text-neutral-800">
+                                    <div>"{{ roundEndModal.guess }}"</div>
+                                    <div class="self-end">— {{ roundEndModal.winner }}</div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div v-if="isDrawer" class="flex flex-col w-full">
-                        <div class="flex gap-2 items-center" v-for="(guess, author) in guesses" :key="author">
-                            <div>{{ guess }}</div> 
-                            <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">✅</button> 
-                            <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.FAR)">❌</button>
-                            <button class="px-2 py-1 rounded-md" @click="selectWinner(guess, author.toString())">🥇</button>
-                        </div>
-                    </div>
-                    <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 self-stretch overflow-y-scroll">
-                        <transition-group
-                            enter-active-class="duration-500 ease-in-out"
-                            enter-from-class="opacity-0 translate-y-1/2"
-                            leave-active-class="duration-500 ease-in-out"
-                            leave-to-class="opacity-0 translate-y-1/2"
-                            move-class="duration-500 ease-in-out"
-                        >
-                            <div
-                                v-for="{ guess, type } in hints" :key="guess"
-                                class="text-white"
-                                :class="{
-                                    'text-red-600': type === HintTypes.FAR,
-                                    'text-green-500': type === HintTypes.CLOSE
-                                }"
-                            >
-                                {{ `'${guess}' ${type}!` }}
+                            <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center gap-2 w-full endRoundModalNote">
+                                <div>updated scores:</div>
+                                <div class="flex flex-col self-start text-neutral-800">
+                                    <div class="flex justify-between gap-8">
+                                        <div>{{ roundEndModal.promptAuthor }}:</div>
+                                        <transition
+                                            mode="out-in"
+                                            enter-active-class="duration-1000 ease-in-out transition-all"
+                                            leave-active-class="duration-400 ease-in-out transition-all"
+                                            enter-from-class="-translate-x-10 opacity-0"
+                                            leave-to-class="translate-x-10 opacity-0"
+                                        >
+                                            <div :key="roundEndModal.promptAuthorScore">{{ roundEndModal.promptAuthorScore }}</div>
+                                        </transition>
+                                    
+                                    </div>
+                                    <div class="w-full flex justify-between">
+                                        <div >{{ roundEndModal.winner }}:</div>
+                                        <transition
+                                            mode="out-in"
+                                            enter-active-class="duration-1000 ease-in-out transition-all"
+                                            leave-active-class="duration-400 ease-in-out transition-all"
+                                            enter-from-class="translate-x-10 opacity-0"
+                                            leave-to-class="-translate-x-10 opacity-0"
+                                        >
+                                            <div :key="roundEndModal.winnerScore">{{ roundEndModal.winnerScore }}</div>
+                                        </transition>
+                                    </div>
+                                </div>
                             </div>
                         </transition-group>
                     </div>
-                    <modal :show="roundEndModal.shown">
-                        <div class="h-full flex flex-col items-center text-2xl gap-10 text-black font-normal">
-                            <transition-group
-                                enter-active-class="duration-500 ease-in-out transition-all"
-                                enter-from-class="opacity-0 -translate-x-full"
-                                leave-active-class="duration-500 ease-in-out transition-all"
-                                leave-to-class="opacity-0 translate-x-full"
-                                move-class="duration-500 ease-in-out transition-all"
-                            >
-                                <div v-if="roundEndModal.step >= 0" class="flex flex-col gap-2 items-center endRoundModalNote">
-                                    <div class="">the prompt was...</div>
-                                    <div class="flex flex-col items-center text-neutral-800">
-                                        <div>"{{ roundEndModal.prompt }}"</div>
-                                        <div class="self-end">— {{ roundEndModal.promptAuthor }}</div>
-                                    </div>
-                                </div>
-                                <div v-if="roundEndModal.step >= 1" class="flex flex-col gap-2 items-center endRoundModalNote">
-                                    <div>the winning guess was...</div>
-                                    <div class="flex flex-col items-center text-neutral-800">
-                                        <div>"{{ roundEndModal.guess }}"</div>
-                                        <div class="self-end">— {{ roundEndModal.winner }}</div>
-                                    </div>
-                                </div>
-                                <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center gap-2 w-full endRoundModalNote">
-                                    <div>updated scores:</div>
-                                    <div class="flex flex-col self-start text-neutral-800">
-                                        <div class="flex justify-between gap-8">
-                                            <div>{{ roundEndModal.promptAuthor }}:</div>
-                                            <transition
-                                                mode="out-in"
-                                                enter-active-class="duration-1000 ease-in-out transition-all"
-                                                leave-active-class="duration-400 ease-in-out transition-all"
-                                                enter-from-class="-translate-x-10 opacity-0"
-                                                leave-to-class="translate-x-10 opacity-0"
-                                            >
-                                                <div :key="roundEndModal.promptAuthorScore">{{ roundEndModal.promptAuthorScore }}</div>
-                                            </transition>
-                                        
-                                        </div>
-                                        <div class="w-full flex justify-between">
-                                            <div >{{ roundEndModal.winner }}:</div>
-                                            <transition
-                                                mode="out-in"
-                                                enter-active-class="duration-1000 ease-in-out transition-all"
-                                                leave-active-class="duration-400 ease-in-out transition-all"
-                                                enter-from-class="translate-x-10 opacity-0"
-                                                leave-to-class="-translate-x-10 opacity-0"
-                                            >
-                                                <div :key="roundEndModal.winnerScore">{{ roundEndModal.winnerScore }}</div>
-                                            </transition>
-                                        </div>
-                                    </div>
-                                </div>
-                            </transition-group>
-                        </div>
-                    </modal>
-                </div>
-                <div v-else-if="gameState === GameStates.OVER" class="bg-neutral-800 bg-opacity-80 w-3/6 text-black text-2xl flex flex-col gap-4 items-center justify-start rounded-2xl p-4 pt-12">
-                    <div class="font-bold text-3xl text-white">GAME OVER</div>
-                    <div class="mt-2 text-white">Here are the final scores:</div>
-                    <div class="w-3/4 mt-8 border-4 border-black rounded-xl overflow-hidden">
-                        <table class="w-full">
-                            <tr class="py-10 bg-white">
-                                <th class="w-1/6 py-1"></th>
-                                <th class="py-1 border-l border-neutral-600">Player</th>
-                                <th class="w-1/6 py-1 border-l border-neutral-600">Score</th>
-                            </tr>
-                            <tr 
-                                v-for="(score, i) in finalScores" 
-                                :key="i" 
-                                class=""
-                                :class="{'bg-neutral-100': i % 2 === 0, 'bg-white': i % 2 === 1}"
-                            >
-                                <td class="text-center text-neutral-600">{{ i + 1 }}</td>
-                                <td class="text-left border-l border-neutral-600 px-4">{{ score.name }}</td>
-                                <td class="text-center border-l border-neutral-600">{{ score.score }}</td>
-                            </tr>
-                        </table>
-                    </div>
-                    <div class="w-full flex justify-end">
-                        <button 
-                            type="button" 
-                            class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black hover:-translate-x-1 hover:-translate-y-1 transition-all"
-                            @click="playAgain"
-                        >
-                            play again
-                        </button>
-                    </div>
-                </div>
-
+                </modal>
             </div>
+            <div v-else-if="gameState === GameStates.OVER" class="bg-neutral-800 bg-opacity-80 w-3/6 text-black text-2xl flex flex-col gap-4 items-center justify-start rounded-2xl p-4 pt-12">
+                <div class="font-bold text-3xl text-white">GAME OVER</div>
+                <div class="mt-2 text-white">Here are the final scores:</div>
+                <div class="w-3/4 mt-8 border-4 border-black rounded-xl overflow-hidden">
+                    <table class="w-full">
+                        <tr class="py-10 bg-white">
+                            <th class="w-1/6 py-1"></th>
+                            <th class="py-1 border-l border-neutral-600">Player</th>
+                            <th class="w-1/6 py-1 border-l border-neutral-600">Score</th>
+                        </tr>
+                        <tr 
+                            v-for="(score, i) in finalScores" 
+                            :key="i" 
+                            class=""
+                            :class="{'bg-neutral-100': i % 2 === 0, 'bg-white': i % 2 === 1}"
+                        >
+                            <td class="text-center text-neutral-600">{{ i + 1 }}</td>
+                            <td class="text-left border-l border-neutral-600 px-4">{{ score.name }}</td>
+                            <td class="text-center border-l border-neutral-600">{{ score.score }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="w-full flex justify-end">
+                    <button 
+                        type="button" 
+                        class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black hover:-translate-x-1 hover:-translate-y-1 transition-all"
+                        @click="playAgain"
+                    >
+                        play again
+                    </button>
+                </div>
+            </div>
+
         </transition>
     </div>
 </template>
