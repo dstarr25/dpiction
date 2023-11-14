@@ -8,6 +8,11 @@ import loadingImage from './assets/loading.png'
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
 import TransitionModal from '@/components/TransitionModal.vue'
 
+const getRandomNumber = (maxNum: number) => {
+    return Math.floor(Math.random() * maxNum);
+};
+
+
 const showErrorMessage = (message: string) => {
     Swal.fire({
         toast: true,
@@ -58,6 +63,7 @@ export default {
             promptsPP: 0,
             finalScores: [] as { name: string, score: number }[],
             totalDrawings: 3,
+            copyGameLinkText: 'copy game link'
         }
     },
     components: {
@@ -72,6 +78,9 @@ export default {
             const gameId = usp.get('gameId')
             return gameId
         },
+        gameLink() {
+            return `${window.location.origin}?gameId=${this.gameId}`
+        },
         isDrawer() {
             return this.drawer === this.name
         },
@@ -80,6 +89,11 @@ export default {
         }
     },
     methods: {
+        getRandomColor(s: number, l: number) {
+            const h = getRandomNumber(360);
+            const color = `hsl(${h}deg, ${s}%, ${l}%)`;
+            return color;
+        },
         startWebSocket(gameId: string) {
             this.socket = new WebSocket('ws://localhost:3000')
             this.socket.addEventListener('open', () => {
@@ -306,6 +320,15 @@ export default {
             if (!this.socket || this.gameState !== GameStates.OVER || !this.gameId || this.admin !== this.name) return
             const playAgainMessage = new SocketMessage(ToServerMessages.PLAY_AGAIN, { gameId: this.gameId, name: this.name })
             this.socket.send(JSON.stringify(playAgainMessage))
+        },
+        async copyGameLink() {
+            try {
+                await navigator.clipboard.writeText(this.gameLink)
+                this.copyGameLinkText = '✔'
+            } catch (e) {
+                console.error('Error copying game link',  e)
+                this.copyGameLinkText = '✖'
+            }
         }
     }
 }
@@ -339,34 +362,52 @@ export default {
             </div>
 
             <!-- in the game screen -->
-                
-            <div v-else-if="gameState === GameStates.OPEN" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
-                gameId: {{ gameId }}
-                <div>Players:</div>
-                <div class="flex flex-row gap-2">
-                    <div v-for="player of Object.values(players)" :key="player.name"> {{ admin === player.name ? `${player.name} (admin),` : `${player.name},` }} </div>
+            <div v-else-if="gameState === GameStates.OPEN" class="w-3/6 flex flex-col gap-6">
+                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 pb-2 bg-white text-black flex flex-col items-start justify-start">
+                    
+                    <div>PLAYERS</div>
+                    <div class="flex flex-row gap-2 flex-wrap border-t-2 border-black pt-2 mt-2 w-full">
+                        <div v-for="player of Object.values(players)" :key="player.name" class="flex items-center border-2 border-black rounded-full px-2 h-8 text-lg whitespace-nowrap gap-1"
+                            :style="{ 'background-color': getRandomColor(100, 85)}"
+                        >
+                            <svg v-if="admin === player.name" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
+                            </svg>
+                            {{ player.name }} 
+                        </div>
+                    </div>
+                    <div v-if="name === admin" class="flex justify-end w-full">
+                        <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-2 border-dashed border-neutral-500 text-black">
+                            <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
+                            <div class="flex flex-col items-center">
+                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
+                                <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings -= totalDrawings > 0 ? 1 : 0">-</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex w-full flex-row justify-end items-center">
+                        <transition mode="out-in"
+                            enter-active-class="duration-300 ease-in-out"
+                            enter-from-class="opacity-0"
+                            leave-active-class="duration-300 ease-in-out"
+                            leave-to-class="opacity-0"
+                        >
+                            <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
+                            <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for {{ admin }} to start game...</div>
+                        </transition>
+                    </div>
                 </div>
-                <div v-if="name === admin" class="flex justify-end w-full">
-                    <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-4 border-black text-black">
-                        <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
-                        <div class="flex flex-col items-center">
-                            <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
-                            <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings -= totalDrawings > 0 ? 1 : 0">-</button>
+                <div class="flex justify-end">
+                    <div class="flex w-3/4 shadow-[0.3rem_0.3rem_#555] border-4 border-black rounded-[20px]">
+                        <div class="border-r border-black p-2 px-4 whitespace-nowrap overflow-hidden text-ellipsis bg-white rounded-l-[20px]">{{ gameLink }}</div>
+                        <div class="border-l border-black p-2 text-center w-52 whitespace-nowrap cursor-pointer hover:bg-opacity-50 bg-white rounded-r-[20px] transition-all" @click="copyGameLink">
+                            <transition mode="out-in" nter-active-class="duration-200 ease-in-out" enter-from-class="opacity-0" leave-active-class="duration-200 ease-in-out" leave-to-class="opacity-0">
+                                <span :key="copyGameLinkText">{{ copyGameLinkText }}</span>
+                            </transition>
                         </div>
                     </div>
                 </div>
-                <div class="flex w-full flex-row justify-end items-center">
-                    <transition mode="out-in"
-                        enter-active-class="duration-300 ease-in-out"
-                        enter-from-class="opacity-0"
-                        leave-active-class="duration-300 ease-in-out"
-                        leave-to-class="opacity-0"
-                    >
-                        <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
-                        <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for admin to start game...</div>
-                    </transition>
-                </div>
-            </div>
+            </div> 
 
             <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
                 <div>You have now begun the prompting stage of the game.</div>
@@ -444,21 +485,21 @@ export default {
                             leave-to-class="opacity-0 translate-x-full"
                             move-class="duration-500 ease-in-out transition-all"
                         >
-                            <div v-if="roundEndModal.step >= 0" class="flex flex-col gap-2 items-center endRoundModalNote">
+                            <div v-if="roundEndModal.step >= 0" class="flex flex-col gap-2 items-center bg-white p-8 rounded-[30px] border-8 border-black shadow-[0.5rem_0.5rem_#555]">
                                 <div class="">the prompt was...</div>
                                 <div class="flex flex-col items-center text-neutral-800">
                                     <div>"{{ roundEndModal.prompt }}"</div>
                                     <div class="self-end">— {{ roundEndModal.promptAuthor }}</div>
                                 </div>
                             </div>
-                            <div v-if="roundEndModal.step >= 1" class="flex flex-col gap-2 items-center endRoundModalNote">
+                            <div v-if="roundEndModal.step >= 1" class="flex flex-col gap-2 items-center bg-white p-8 rounded-[30px] border-8 border-black shadow-[0.5rem_0.5rem_#555]">
                                 <div>the winning guess was...</div>
                                 <div class="flex flex-col items-center text-neutral-800">
                                     <div>"{{ roundEndModal.guess }}"</div>
                                     <div class="self-end">— {{ roundEndModal.winner }}</div>
                                 </div>
                             </div>
-                            <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center gap-2 w-full endRoundModalNote">
+                            <div v-if="roundEndModal.step >= 2" class="flex flex-col items-center gap-2 w-full bg-white p-8 rounded-[30px] border-8 border-black shadow-[0.5rem_0.5rem_#555]">
                                 <div>updated scores:</div>
                                 <div class="flex flex-col self-start text-neutral-800">
                                     <div class="flex justify-between gap-8">
@@ -531,12 +572,5 @@ export default {
 
 <style scoped>
 .endRoundModalNote {
-    padding: 30px;
-    border-radius: 30px;
-    top: 0px;
-    left: 0px;
-    border: 8px solid black;
-    background-color: white;
-    box-shadow: 0.5rem 0.5rem #555;
 }
 </style>
