@@ -8,11 +8,6 @@ import loadingImage from './assets/loading.png'
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
 import TransitionModal from '@/components/TransitionModal.vue'
 
-const getRandomNumber = (maxNum: number) => {
-    return Math.floor(Math.random() * maxNum);
-};
-
-
 const showErrorMessage = (message: string) => {
     Swal.fire({
         toast: true,
@@ -89,10 +84,19 @@ export default {
         }
     },
     methods: {
-        getRandomColor(s: number, l: number) {
-            const h = getRandomNumber(360);
-            const color = `hsl(${h}deg, ${s}%, ${l}%)`;
-            return color;
+        setUrlGameId(gameId: string) {
+            const usp = new URLSearchParams(window.location.search)
+            usp.set('gameId', gameId)
+            const newUrl = this.gameLink
+            history.pushState(null, '', newUrl)
+        },
+        simplehash(str: string) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const charCode = str.charCodeAt(i) * 20;
+                hash += charCode;
+            }
+            return hash;
         },
         startWebSocket(gameId: string) {
             this.socket = new WebSocket('ws://localhost:3000')
@@ -119,6 +123,7 @@ export default {
                     })
                     this.admin = data.admin
                     this.gameId = data.gameId
+                    this.setUrlGameId(data.gameId)
                     this.gameState = GameStates.OPEN
                     this.loading = false
                 } else if (action === ToClientMessages.JOIN) {
@@ -363,12 +368,12 @@ export default {
 
             <!-- in the game screen -->
             <div v-else-if="gameState === GameStates.OPEN" class="w-3/6 flex flex-col gap-6">
-                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 pb-2 bg-white text-black flex flex-col items-start justify-start">
+                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 pb-2 bg-white text-black flex flex-col gap-2 items-start justify-start">
                     
-                    <div>PLAYERS</div>
-                    <div class="flex flex-row gap-2 flex-wrap border-t-2 border-black pt-2 mt-2 w-full">
+                    <div class="font-bold text-lg">PLAYERS</div>
+                    <div class="flex flex-row gap-2 flex-wrap w-full">
                         <div v-for="player of Object.values(players)" :key="player.name" class="flex items-center border-2 border-black rounded-full px-2 h-8 text-lg whitespace-nowrap gap-1"
-                            :style="{ 'background-color': getRandomColor(100, 85)}"
+                            :style="{ 'background-color': `hsl(${simplehash(player.name) % 360}deg, 100%, 85%)`}"
                         >
                             <svg v-if="admin === player.name" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
@@ -376,7 +381,8 @@ export default {
                             {{ player.name }} 
                         </div>
                     </div>
-                    <div v-if="name === admin" class="flex justify-end w-full">
+                    <div v-if="name === admin" class="flex flex-col w-full">
+                        <div class="font-bold text-lg">GAME SETTINGS</div>
                         <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-2 border-dashed border-neutral-500 text-black">
                             <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
                             <div class="flex flex-col items-center">
@@ -541,7 +547,7 @@ export default {
                         <tr class="py-10 bg-white">
                             <th class="w-1/6 py-1"></th>
                             <th class="py-1 border-l border-neutral-600">Player</th>
-                            <th class="w-1/6 py-1 border-l border-neutral-600">Score</th>
+                            <th class="w-1/6 px-3 py-1 border-l border-neutral-600">Score</th>
                         </tr>
                         <tr 
                             v-for="(score, i) in finalScores" 
@@ -555,7 +561,7 @@ export default {
                         </tr>
                     </table>
                 </div>
-                <div class="w-full flex justify-end">
+                <div v-if="admin === name" class="w-full flex justify-end">
                     <button 
                         type="button" 
                         class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black hover:-translate-x-1 hover:-translate-y-1 transition-all"
