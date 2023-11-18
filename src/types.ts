@@ -24,6 +24,7 @@ export enum ToServerMessages {
     SELECT_WINNER = 'selectwinner',
     GET_CHOICES = 'getchoices',
     PLAY_AGAIN = 'playagain',
+    KICK = 'kick',
 }
 
 export enum ToClientMessages {
@@ -51,6 +52,7 @@ export enum CloseReasons {
     GAME_NO_EXIST = 4000,
     GAME_IN_PROGRESS = 4001,
     NAME_TAKEN = 4002,
+    KICKED = 4003,
 }
 
 export const CodeMessages = {
@@ -58,6 +60,7 @@ export const CodeMessages = {
     [CloseReasons.GAME_NO_EXIST]: 'The game you are trying to join does not exist.',
     [CloseReasons.GAME_IN_PROGRESS]: 'The game you are trying to join is in progress.',
     [CloseReasons.NAME_TAKEN]: 'The name you have chosen was already taken.',
+    [CloseReasons.KICKED]: 'You have been kicked from the game.',
 } as {[key: number]: string}
 
 export enum GameStates {

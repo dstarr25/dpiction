@@ -84,6 +84,11 @@ export default {
         }
     },
     methods: {
+        kickPlayer(playerToKick: string) {
+            if (!this.socket || this.admin !== this.name || !this.gameId) return // cuz they're trolling
+            const kickMessage = new SocketMessage(ToServerMessages.KICK, { name: this.name, gameId: this.gameId, playerToKick })
+            this.socket.send(JSON.stringify(kickMessage))
+        },
         setUrlGameId(gameId: string) {
             const usp = new URLSearchParams(window.location.search)
             usp.set('gameId', gameId)
@@ -368,22 +373,29 @@ export default {
 
             <!-- in the game screen -->
             <div v-else-if="gameState === GameStates.OPEN" class="w-3/6 flex flex-col gap-6">
-                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 pb-2 bg-white text-black flex flex-col gap-2 items-start justify-start">
+                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 pb-4 bg-white text-black flex flex-col gap-2 items-start justify-start">
                     
                     <div class="font-bold text-lg">PLAYERS</div>
                     <div class="flex flex-row gap-2 flex-wrap w-full">
                         <div v-for="player of Object.values(players)" :key="player.name" class="flex items-center border-2 border-black rounded-full px-2 h-8 text-lg whitespace-nowrap gap-1"
                             :style="{ 'background-color': `hsl(${simplehash(player.name) % 360}deg, 100%, 85%)`}"
                         >
+                            <!-- heroicon: outline/sparkles -->
                             <svg v-if="admin === player.name" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="w-5">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456zM16.894 20.567L16.5 21.75l-.394-1.183a2.25 2.25 0 00-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 001.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 001.423 1.423l1.183.394-1.183.394a2.25 2.25 0 00-1.423 1.423z" />
                             </svg>
                             {{ player.name }} 
+                            <svg v-if="admin === name && player.name !== admin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" 
+                                class="w-5 cursor-pointer hover:scale-1"
+                                @click="kickPlayer(player.name)"
+                            >
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+                            </svg>
                         </div>
                     </div>
-                    <div v-if="name === admin" class="flex flex-col w-full">
-                        <div class="font-bold text-lg">GAME SETTINGS</div>
-                        <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-2 border-dashed border-neutral-500 text-black">
+                    <div v-if="name === admin" class="flex flex-col w-full mt-4">
+                        <div class="font-bold text-lg w-fit">GAME SETTING</div>
+                        <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-neutral-500 text-black">
                             <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
                             <div class="flex flex-col items-center">
                                 <button type="button" class="flex-1 leading-4 hover:scale-150 transition-all p-0.5" @click="totalDrawings++">+</button>
@@ -398,7 +410,7 @@ export default {
                             leave-active-class="duration-300 ease-in-out"
                             leave-to-class="opacity-0"
                         >
-                            <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all" @click="startGame">start game</button>
+                            <button v-if="name === admin" class="border-2 p-1 rounded-lg border-transparent hover:border-white transition-all hover:scale-110" @click="startGame">start game</button>
                             <div v-else class="border-2 p-1 rounded-lg border-transparent">waiting for {{ admin }} to start game...</div>
                         </transition>
                     </div>
