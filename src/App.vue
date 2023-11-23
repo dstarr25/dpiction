@@ -7,6 +7,7 @@ import loadingImage from './assets/loading.png'
 
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
 import TransitionModal from '@/components/TransitionModal.vue'
+import { is } from '@babel/types';
 
 const showErrorMessage = (message: string) => {
     Swal.fire({
@@ -58,7 +59,8 @@ export default {
             promptsPP: 0,
             finalScores: [] as { name: string, score: number }[],
             totalDrawings: 3,
-            copyGameLinkText: 'copy game link'
+            copyGameLinkText: 'copy game link',
+            promptsEdit: [] as string[]
         }
     },
     components: {
@@ -150,6 +152,7 @@ export default {
                 } else if (action === ToClientMessages.PROMPT_SUCCESS) {
                     const data = json.data as PromptSuccessDataToClient
                     showSuccessMessage(`Submitted: "${data.prompt}"`)
+                    this.promptsEdit.push(data.prompt)
 
                 } else if (action === ToClientMessages.NEW_ROUND) {
                     const data = json.data as NewRoundDataToClient
@@ -284,7 +287,8 @@ export default {
             this.showchoices = false
             this.promptsPP = 0
             this.finalScores = [] as { name: string, score: number }[]
-            this.totalDrawings = 3
+            this.totalDrawings = 3,
+            this.promptsEdit = []
         },
         startGame() {
             if (!this.socket || this.admin !== this.name || !this.gameId) return // cuz they're trolling
