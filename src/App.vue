@@ -432,11 +432,12 @@ export default {
             </div> 
 
             <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
-                <div>You have now begun the prompting stage of the game.</div>
+                <div>SUBMIT PROMPTS</div>
                 <div>
-                    Each drawer will select a prompt from a group of prompts written by other players. 
-                    The author of a prompt will receive points when their prompt is chosen, 
-                    so make your prompts something you would want to draw!
+                    Write and submit prompts to be used in the game. During each round, the drawer 
+                    chooses from a list consisting of one prompt from each other player. The author of 
+                    the selected prompt will receive points at the end of the round, so try to write prompts
+                    that will get selected, whether that be for being funny, clever, or fun to draw!
                 </div>
                 <form @submit.prevent="submitPrompt">
                     <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
