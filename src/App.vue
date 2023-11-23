@@ -418,7 +418,7 @@ export default {
                 <div class="flex justify-end">
                     <div class="flex w-3/4 shadow-[0.3rem_0.3rem_#555] border-4 border-black rounded-[20px]">
                         <div class="border-r border-black p-2 px-4 whitespace-nowrap overflow-hidden text-ellipsis bg-white rounded-l-[20px]">{{ gameLink }}</div>
-                        <div class="border-l border-black p-2 text-center w-52 whitespace-nowrap cursor-pointer hover:bg-opacity-50 bg-white rounded-r-[20px] transition-all" @click="copyGameLink">
+                        <div class="border-l border-black p-2 text-center w-52 whitespace-nowrap cursor-pointer hover:bg-opacity-70 bg-white rounded-r-[20px] transition-all" @click="copyGameLink">
                             <transition mode="out-in" nter-active-class="duration-200 ease-in-out" enter-from-class="opacity-0" leave-active-class="duration-200 ease-in-out" leave-to-class="opacity-0">
                                 <span :key="copyGameLinkText">{{ copyGameLinkText }}</span>
                             </transition>
