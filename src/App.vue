@@ -431,19 +431,30 @@ export default {
                 </div>
             </div> 
 
-            <div v-else-if="gameState === GameStates.PROMPTS" class="bg-neutral-800 w-3/6 text-white flex flex-col items-start justify-start rounded-xl p-5">
-                <div>SUBMIT PROMPTS</div>
-                <div>
-                    Write and submit prompts to be used in the game. During each round, the drawer 
-                    chooses from a list consisting of one prompt from each other player. The author of 
-                    the selected prompt will receive points at the end of the round, so try to write prompts
-                    that will get selected, whether that be for being funny, clever, or fun to draw!
+            <div v-else-if="gameState === GameStates.PROMPTS" class="w-3/6 flex flex-col gap-6">
+                <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start">
+                    <div>SUBMIT {{ promptsPP }} PROMPTS</div>
+                    <div>
+                        Write and submit prompts to be used in the game. During each round, the drawer 
+                        chooses from a list consisting of one prompt from each other player. The author of 
+                        the selected prompt will receive points at the end of the round, so try to write prompts
+                        that will get selected, whether that be for being funny, clever, or fun to draw!
+                    </div>       
                 </div>
-                <form @submit.prevent="submitPrompt">
-                    <input class="text-black rounded-l-md border-r-2 border-black outline-none p-2" type="text" v-model="promptEdit">
-                    <button class="text-black bg-white rounded-r-md border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
-                </form>
-                
+                <div class="flex justify-center">
+                    <form @submit.prevent="submitPrompt" class="w-fit rounded-[10px] shadow-[0.25rem_0.25rem_#888] bg-white text-black flex items-start justify-start">
+                        <input 
+                            class="text-black rounded-l-[10px] border-4 border-r-2 border-black outline-none p-2 focus:border-[#444]" 
+                            type="text" 
+                            v-model="promptEdit"
+                            placeholder="Enter your prompt here..."
+                            maxlength="50"
+                            required
+                        >
+                        <button class="text-black bg-white rounded-r-[10px] border-4 border-l-2 border-black outline-none p-2 hover:border-[#444] transition-all" type="submit">submit</button>
+
+                    </form>                             
+                </div>
             </div>
             <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
                 <div class="flex flex-col items-end bg-neutral-900 rounded-md ">
