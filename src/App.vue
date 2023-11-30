@@ -431,10 +431,10 @@ export default {
                 </div>
             </div> 
 
-            <div v-else-if="gameState === GameStates.PROMPTS" class="w-3/6 flex flex-col gap-6">
+            <div v-else-if="gameState === GameStates.PROMPTS" class="w-[600px] flex flex-col gap-6">
                 <div class="rounded-[30px] shadow-[0.5rem_0.5rem_#555] border-8 border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start">
-                    <div>SUBMIT {{ promptsPP }} PROMPTS</div>
-                    <div>
+                    <div class="w-full text-center">SUBMIT {{ promptsPP }} PROMPTS</div>
+                    <div class="w-full text-justify">
                         Write and submit prompts to be used in the game. During each round, the drawer 
                         chooses from a list consisting of one prompt from each other player. The author of 
                         the selected prompt will receive points at the end of the round, so try to write prompts
@@ -451,7 +451,7 @@ export default {
                             maxlength="50"
                             required
                         >
-                        <button class="text-black bg-white rounded-r-[10px] border-4 border-l-2 border-black outline-none p-2 hover:border-[#444] transition-all" type="submit">submit</button>
+                        <button class="text-black bg-white rounded-r-[10px] border-4 border-l-2 border-black outline-none p-2 hover:border-[#444] focus:border-[#444] transition-all" type="submit">submit</button>
 
                     </form>                             
                 </div>
