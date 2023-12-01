@@ -78,6 +78,9 @@ export default {
         gameLink() {
             return `${window.location.origin}?gameId=${this.gameId}`
         },
+        redirectLink() {
+            return window.location.origin
+        },
         isDrawer() {
             return this.drawer === this.name
         },
@@ -363,15 +366,37 @@ export default {
             </div> -->
 
             <!-- enter name and join screen -->
-            <div v-if="!gameId && !loading" class="flex w-full h-full flex justify-center items-center">
-                <form @submit.prevent="joinGame" class="border-4 border-black rounded-lg overflow-hidden">
+            <div v-if="!gameId && !loading" class="flex flex-col gap-10 w-full items-center">
+                <a :href="redirectLink" class="p-4 bg-white bg-opacity-80 shadow-[0.5rem_0.5rem_#555] rounded-[30px]">
+                    <img src="./assets/dPictionLogo.png" class="h-40" alt="logo">
+                </a>
+                <!-- <form @submit.prevent="joinGame" class="border-4 border-black rounded-lg overflow-hidden w-fit">
                     <input class="border-r border-black outline-none p-2" type="text" placeholder="name" v-model="name">
                     <button class="bg-white border-l border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
-                </form>
+                </form> -->
+                <div class="flex justify-center">
+                    <form @submit.prevent="joinGame" class="w-fit rounded-[10px] shadow-[0.25rem_0.25rem_#888] bg-white text-black flex items-start justify-start">
+                        <input 
+                            class="text-black rounded-l-[10px] border-4 border-r-2 border-black outline-none p-2 focus:border-[#444]" 
+                            type="text" 
+                            v-model="name"
+                            placeholder="Enter your name..."
+                            maxlength="20"
+                            required
+                        >
+                        <button 
+                            class="text-black bg-white rounded-r-[10px] border-4 border-l-2 border-black outline-none p-2 hover:border-[#444] focus:border-[#444] transition-all" 
+                            type="submit"
+                        >
+                            {{ urlGameId ? 'join game' : 'create game' }}
+                        </button>
+
+                    </form>                             
+                </div>
             </div> 
 
             <!-- loading screen -->
-            <div v-else-if="loading" class="flex w-full h-full flex justify-center items-center">
+            <div v-else-if="loading" class="flex fixed top-0 left-0 w-screen h-screen justify-center items-center">
                 <img src="./assets/loading.png" alt="loading..." class="animate-spin">
             </div>
 
@@ -467,7 +492,7 @@ export default {
                         </div>
                     </modal>
                     <div class="flex w-full justify-center items-center text-xl p-8">
-                        <div v-if="Object.keys(prompt).length > 0">currently drawing: {{ prompt.prompt }}</div>
+                        <div v-if="Object.keys(prompt).length">currently drawing: {{ prompt.prompt }}</div>
                         <div v-else-if="drawerChosen">{{ drawer }} is drawing...</div>
                         <div v-else>{{ drawer }} is choosing a prompt</div>
                     </div>
