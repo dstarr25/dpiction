@@ -354,6 +354,11 @@ export default {
 <template>
     <!-- <DrawingCanvas /> -->
     <div class="appContainer">
+        <div class="flex flex-row justify-center w-full mb-5">
+            <a :href="redirectLink">
+                <img src="./assets/dPictionLogo.png" class="h-40 drop-shadow-[0.5rem_0.5rem_#555]" alt="logo">
+            </a>
+        </div>
         <transition mode="out-in"
             enter-from-class="opacity-0"
             leave-to-class="opacity-0"
@@ -367,13 +372,26 @@ export default {
 
             <!-- enter name and join screen -->
             <div v-if="!gameId && !loading" class="flex flex-col gap-10 w-full items-center">
-                <a :href="redirectLink" class="p-4 bg-white bg-opacity-80 shadow-[0.5rem_0.5rem_#555] rounded-[30px]">
-                    <img src="./assets/dPictionLogo.png" class="h-40" alt="logo">
-                </a>
                 <!-- <form @submit.prevent="joinGame" class="border-4 border-black rounded-lg overflow-hidden w-fit">
                     <input class="border-r border-black outline-none p-2" type="text" placeholder="name" v-model="name">
                     <button class="bg-white border-l border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
                 </form> -->
+                <div class="rounded-[30px] shadow-[0.3rem_0.3rem_#555] border-[6px] border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start w-[800px]">
+                    
+                    <div class="text-lg text-center w-full">Welcome to dpiction!</div>
+                    <div v-if="!urlGameId" class="text-lg w-full text-justify">
+                        Pictionary with a twist! During a game of dpiction,
+                        players first write their own prompts to be used during the game.
+                        During each round, a drawer chooses a prompt from a list, one from each other player.
+                        The author of the chosen prompt is rewarded, as well as the player with the best guess
+                        during each round, which is decided by the drawer. To create a game, enter your name and click
+                        <strong>create game</strong> below. To join someone else's game, enter their game link into your browser.
+                    </div>
+                    <div v-else class="text-lg w-full text-center whitespace-nowrap overflow-hidden text-ellipsis">
+                        You are attempting to join game {{ urlGameId }}...
+                    </div>
+
+                </div>
                 <div class="flex justify-center">
                     <form @submit.prevent="joinGame" class="w-fit rounded-[10px] shadow-[0.25rem_0.25rem_#888] bg-white text-black flex items-start justify-start">
                         <input 
