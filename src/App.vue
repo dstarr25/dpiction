@@ -354,11 +354,6 @@ export default {
 <template>
     <!-- <DrawingCanvas /> -->
     <div class="appContainer">
-        <div class="flex flex-row justify-center w-full mb-5">
-            <a :href="redirectLink">
-                <img src="./assets/dPictionLogo.png" class="h-40 drop-shadow-[0.5rem_0.5rem_#555]" alt="logo">
-            </a>
-        </div>
         <transition mode="out-in"
             enter-from-class="opacity-0"
             leave-to-class="opacity-0"
@@ -376,6 +371,11 @@ export default {
                     <input class="border-r border-black outline-none p-2" type="text" placeholder="name" v-model="name">
                     <button class="bg-white border-l border-black outline-none p-2 hover:bg-gray-400 transition-all" type="submit">{{ urlGameId ? 'join game' : 'create game' }}</button>
                 </form> -->
+                <div class="flex flex-row justify-center w-full">
+                    <a :href="redirectLink">
+                        <img src="./assets/dPictionLogo.png" class="h-40 logo-shadow" alt="logo">
+                    </a>
+                </div>
                 <div class="rounded-[30px] shadow-[0.3rem_0.3rem_#555] border-[6px] border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start w-[800px]">
                     
                     <div class="text-lg text-center w-full">Welcome to dpiction!</div>
@@ -401,7 +401,7 @@ export default {
                             placeholder="Enter your name..."
                             maxlength="20"
                             required
-                        >
+                        />
                         <button 
                             class="text-black bg-white rounded-r-[10px] border-4 border-l-2 border-black outline-none p-2 hover:border-[#444] focus:border-[#444] transition-all" 
                             type="submit"
@@ -441,7 +441,7 @@ export default {
                         </div>
                     </div>
                     <div v-if="name === admin" class="flex flex-col w-full mt-4">
-                        <div class="font-bold text-lg w-fit">GAME SETTING</div>
+                        <div class="font-bold text-lg w-fit">GAME SETTINGS</div>
                         <div class="flex gap-3 bg-white py-2 px-3 rounded-xl items-center border-neutral-500 text-black">
                             <div class="flex gap-1 items-center text-lg h-4">total drawings: <span class="w-6 text-center">{{ totalDrawings }}</span></div>
                             <div class="flex flex-col items-center">
