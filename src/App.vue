@@ -3,10 +3,11 @@ import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages
 import type { StartDataToClient, Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
-import loadingImage from './assets/loading.png'
+import loadingImage from 'loading.png'
 
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
 import TransitionModal from '@/components/TransitionModal.vue'
+import GuessSelection from '@/components/GuessSelection.vue'
 import { is } from '@babel/types';
 
 const showErrorMessage = (message: string) => {
@@ -65,7 +66,8 @@ export default {
     },
     components: {
         DrawingCanvas,
-        modal: TransitionModal
+        modal: TransitionModal,
+        GuessSelection,
     },
     mounted() {
     },
@@ -86,7 +88,7 @@ export default {
         },
         HintTypes() {
             return HintTypes
-        }
+        },
     },
     methods: {
         kickPlayer(playerToKick: string) {
@@ -290,7 +292,7 @@ export default {
             this.showchoices = false
             this.promptsPP = 0
             this.finalScores = [] as { name: string, score: number }[]
-            this.totalDrawings = 3,
+            this.totalDrawings = 3
             this.promptsEdit = []
         },
         startGame() {
@@ -361,8 +363,8 @@ export default {
             leave-active-class="duration-300 ease-in-out"
         >
             <!-- <div class="flex h-10 gap-4">
-                <img src="./assets/thumbsup.png" class="h-8 cursor-pointer transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsup">
-                <img src="./assets/thumbsdown.png" class="h-8 cursor-pointer self-end transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsdown">
+                <img src="thumbsup.png" class="h-8 cursor-pointer transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsup">
+                <img src="thumbsdown.png" class="h-8 cursor-pointer self-end transition-all hover:scale-125 hover:-translate-y-1" style="image-rendering: pixelated;" alt="thumbsdown">
             </div> -->
 
             <!-- enter name and join screen -->
@@ -373,7 +375,7 @@ export default {
                 </form> -->
                 <div class="flex flex-row justify-center w-full">
                     <a :href="redirectLink">
-                        <img src="./assets/dPictionLogo.png" class="h-40 logo-shadow" alt="logo">
+                        <img src="dPictionLogo.png" class="h-40 logo-shadow" alt="logo">
                     </a>
                 </div>
                 <div class="rounded-[30px] shadow-[0.3rem_0.3rem_#555] border-[6px] border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start w-[800px]">
@@ -415,7 +417,7 @@ export default {
 
             <!-- loading screen -->
             <div v-else-if="loading" class="flex fixed top-0 left-0 w-screen h-screen justify-center items-center">
-                <img src="./assets/loading.png" alt="loading..." class="animate-spin">
+                <img src="loading.png" alt="loading..." class="animate-spin">
             </div>
 
             <!-- in the game screen -->
@@ -499,16 +501,16 @@ export default {
                     </form>                             
                 </div>
             </div>
-            <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center">
-                <div class="flex flex-col items-end bg-neutral-900 rounded-md ">
-                    <modal :show="choices.length > 0 && showchoices">
-                        <div class="flex flex-col gap-4 items-center justify-center">
-                            <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
-                            <div class="flex flex-row gap-2">
-                                <button type="button" class="p-4 bg-neutral-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
-                            </div>
+            <div v-else-if="gameState === GameStates.DRAWING" class="text-white flex items-start justify-center gap-4">
+                <modal :show="choices.length > 0 && showchoices && !roundEndModal.shown">
+                    <div class="flex flex-col gap-4 items-center justify-center">
+                        <div class="text-2xl">YOU ARE THE DRAWER. CHOOSE A PROMPT:</div>
+                        <div class="flex flex-row gap-2">
+                            <button type="button" class="p-4 bg-neutral-700 text-white rounded-md" v-for="(choice,index) in choices" :key="index" @click="choosePrompt(choice)">{{ choice.prompt }}</button>
                         </div>
-                    </modal>
+                    </div>
+                </modal>
+                <div class="flex flex-col items-end bg-neutral-100 text-black rounded-[30px] border-8 border-black shadow-[0.5rem_0.5rem_#555]">
                     <div class="flex w-full justify-center items-center text-xl p-8">
                         <div v-if="Object.keys(prompt).length">currently drawing: {{ prompt.prompt }}</div>
                         <div v-else-if="drawerChosen">{{ drawer }} is drawing...</div>
@@ -525,15 +527,23 @@ export default {
                         </div>
                     </div>
                 </div>
-                <div v-if="isDrawer" class="flex flex-col w-full">
-                    <div class="flex gap-2 items-center" v-for="(guess, author) in guesses" :key="author">
-                        <div>{{ guess }}</div> 
-                        <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.CLOSE)">✅</button> 
-                        <button class="px-2 py-1 rounded-md" @click="sendHint(guess, HintTypes.FAR)">❌</button>
-                        <button class="px-2 py-1 rounded-md" @click="selectWinner(guess, author.toString())">🥇</button>
+                <div v-if="isDrawer" class="flex flex-col  overflow-y-hidden self-stretch w-72 h-[80vh] text-black">
+                    <div class="w-full bg-white border-b-4 py-1 text-xl border-black rounded-full  flex justify-center mb-4">
+                        Guesses:
+                    </div>
+                    <div class="h-24 flex flex-col border-dashed border-2 border-transparent hover:border-black bg-neutral-50 rounded-xl shadow group relative scale-95 hover:scale-100 transition-all group" v-for="(guesschoice, author) in guesses" :key="author">
+                        <div class="absolute top-0 left-0 w-full h-full opacity-0 z-0 group-hover:opacity-100 group-hover:z-10 transition-all px-5 py-4">
+                            <GuessSelection />
+                        </div>
+                        <div class="absolute top-0 left-0 w-full h-full opacity-100 z-10 group-hover:opacity-0 group-hover:z-0 transition-all px-5 py-4">
+                            <div class="flex flex-col justify-between">
+                                <div class="text-lg">“{{ guesschoice }}”</div>
+                                <div class="text-lg self-end">—{{ author }}</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div v-else class="flex flex-col justify-end p-4 bg-neutral-900 border-l-4 border-neutral-500 self-stretch overflow-y-scroll">
+                <div v-else class="flex flex-col p-4 overflow-y-hidden self-stretch w-72 h-[80vh]">
                     <transition-group
                         enter-active-class="duration-500 ease-in-out"
                         enter-from-class="opacity-0 translate-y-1/2"
@@ -543,7 +553,6 @@ export default {
                     >
                         <div
                             v-for="{ guess, type } in hints" :key="guess"
-                            class="text-white"
                             :class="{
                                 'text-red-600': type === HintTypes.FAR,
                                 'text-green-500': type === HintTypes.CLOSE

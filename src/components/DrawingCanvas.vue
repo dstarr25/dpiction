@@ -1,5 +1,5 @@
 <template>
-    <div class="flex flex-col gap-4 justify-center items-center bg-neutral-100">
+    <div class="flex flex-col gap-4 justify-center items-center">
         <canvas class="h-96 border-y-4 border-neutral-500" style="image-rendering: pixelated; aspect-ratio: 4/3;" :style="cursorStyle" ref="canvas" @mousedown="startDrawing" @mousemove="draw" @mouseup="stopDrawing" @mouseleave="stopDrawing" width="200" height="150"></canvas>
         <!-- <div class="fixed top-10 left-10 bg-white rounded p-10 text-black">{{ debugText }}</div> -->
         <div v-if="isDrawer" class="w-full p-8 flex flex-col gap-6">
@@ -53,7 +53,7 @@ export default {
     },
     computed: {
         cursorStyle() {
-            return this.isDrawer ? { cursor: `url(./src/assets/pb32.png), auto` } : {}
+            return this.isDrawer ? { cursor: `url(pb32.png), auto` } : {}
         }
     },
     mounted() {
