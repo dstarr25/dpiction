@@ -47,7 +47,7 @@ export default {
             context: null as CanvasRenderingContext2D | null,
             lastX: 0,
             lastY: 0,
-            lineWidth: 1,
+            lineWidth: "1",
             debugText: ""
         };
     },
@@ -66,7 +66,7 @@ export default {
         this.context?.fillRect(0, 0, this.context.canvas.width, this.context.canvas.width);
         this.context.fillStyle = this.selectedColor;
         this.context.strokeStyle = this.selectedColor; 
-        this.context.lineWidth = this.lineWidth; 
+        this.context.lineWidth = parseInt(this.lineWidth); 
 
         // this.updateCursor();
 

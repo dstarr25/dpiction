@@ -381,7 +381,7 @@ export default {
                 </form> -->
                 <div class="flex flex-row justify-center w-full">
                     <a :href="redirectLink">
-                        <img src="dPictionLogo.png" class="h-40 logo-shadow" alt="logo">
+                        <img src="/dPictionLogo.png" class="h-40 logo-shadow" alt="logo">
                     </a>
                 </div>
                 <div class="rounded-[30px] shadow-[0.3rem_0.3rem_#555] border-[6px] border-black p-8 bg-white text-black flex flex-col gap-2 items-start justify-start w-[800px]">
@@ -423,7 +423,7 @@ export default {
 
             <!-- loading screen -->
             <div v-else-if="loading" class="flex fixed top-0 left-0 w-screen h-screen justify-center items-center">
-                <img src="loading.png" alt="loading..." class="animate-spin">
+                <img src="/loading.png" alt="loading..." class="animate-spin">
             </div>
 
             <!-- in the game screen -->
