@@ -1,14 +1,14 @@
 <script lang="ts">
-import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
-import type { StartDataToClient, Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
 import Swal from 'sweetalert2'
 
-import loadingImage from 'loading.png'
+import { SocketMessage, ToClientMessages, ToServerMessages, Player, CodeMessages, GameStates, HintTypes } from './types';
+import type { StartDataToClient, Hint, RoundEndInfo, EndRoundDataToClient, JoinSuccessData, JoinDataToClient, LeaveDataToClient, ErrorDataToClient, PromptSuccessDataToClient, NewRoundDataToClient, Prompt, TimeRemainingDataToClient, DrawDataToClient, GuessDataToClient } from './types'
+
+import { env } from '@/utils'
 
 import DrawingCanvas from '@/components/DrawingCanvas.vue'
 import TransitionModal from '@/components/TransitionModal.vue'
 import GuessSelection from '@/components/GuessSelection.vue'
-import { is } from '@babel/types';
 
 const showErrorMessage = (message: string) => {
     Swal.fire({
@@ -61,7 +61,7 @@ export default {
             finalScores: [] as { name: string, score: number }[],
             totalDrawings: 3,
             copyGameLinkText: 'copy game link',
-            promptsEdit: [] as string[]
+            promptsEdit: [] as string[],
         }
     },
     components: {
@@ -111,7 +111,7 @@ export default {
             return hash;
         },
         startWebSocket(gameId: string) {
-            this.socket = new WebSocket('ws://localhost:3000')
+            this.socket = new WebSocket(env('WEBSOCKET_URL'))
             this.socket.addEventListener('open', () => {
                 if (!this.socket) return
                 console.log('WebSocket connection opened.');
@@ -207,6 +207,10 @@ export default {
                 } else if (action === ToClientMessages.HINT) {
                     const data = json.data as Hint
                     this.hints.push(data)
+                    setTimeout(() => {
+                        const hintsbox: HTMLElement = this.$refs.hintsbox as HTMLElement
+                        hintsbox.scrollTo({ top: hintsbox.scrollHeight, behavior: 'smooth' })
+                    }, 200)
                 } else if (action === ToClientMessages.END_ROUND) {
                     const data = json.data as EndRoundDataToClient
                     this.showchoices = false
@@ -323,11 +327,12 @@ export default {
             this.guess = this.guessEdit
             this.guessEdit = ""
         },
-        sendHint(guess: string, type: string) {
+        sendHint(guess: string, type: string, author: string) {
             if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || !this.isDrawer) return
             const hintMessage = new SocketMessage(ToServerMessages.HINT, { gameId: this.gameId, guess, type, name: this.name })
             this.socket.send(JSON.stringify(hintMessage))
-            showSuccessMessage(`Sent hint for guess '${guess}'!`)
+            // showSuccessMessage(`Sent hint for guess '${guess}'!`)
+            delete this.guesses[author]
         },
         selectWinner(guess: string, winner: string) {
             if (!this.socket || this.gameState !== GameStates.DRAWING || !this.gameId || !this.isDrawer || winner === this.name) return
@@ -356,7 +361,8 @@ export default {
 <template>
     <!-- <DrawingCanvas /> -->
     <div class="appContainer">
-        <transition mode="out-in"
+        <transition 
+            mode="out-in"
             enter-from-class="opacity-0"
             leave-to-class="opacity-0"
             enter-active-class="duration-300 ease-in-out"
@@ -520,30 +526,17 @@ export default {
                     <div v-if="!isDrawer" class="flex flex-col w-full">
                         <div class="flex w-full p-8 pb-0">{{guess ? `current guess: ${guess}`: 'Enter your guess below:'}}</div>
                         <div class="flex w-full justify-end items-center p-8">
-                            <form @submit.prevent="submitGuess">
+                            <form @submit.prevent="submitGuess" class="rounded-lg overflow-hidden">
                                 <input class="text-black rounded-l-sm border-r-2 border-black outline-none p-2" type="text" placeholder="Type your guess here..." v-model="guessEdit">
                                 <button class="text-black bg-white 4545rounded-r-sm border-l-2 border-black outline-none p-2 hover:bg-neutral-400 transition-all" type="submit">submit</button>
                             </form>
                         </div>
                     </div>
                 </div>
-                <div v-if="isDrawer" class="flex flex-col  overflow-y-hidden self-stretch w-72 h-[80vh] text-black">
-                    <div class="w-full bg-white border-b-4 py-1 text-xl border-black rounded-full  flex justify-center mb-4">
+                <div v-if="isDrawer" class="flex flex-col overflow-y-hidden self-stretch w-72 h-[80vh] text-black">
+                    <div class="w-full bg-neutral-50 rounded-full shadow py-1 text-xl border-black flex justify-center mb-4">
                         Guesses:
                     </div>
-                    <div class="h-24 flex flex-col border-dashed border-2 border-transparent hover:border-black bg-neutral-50 rounded-xl shadow group relative scale-95 hover:scale-100 transition-all group" v-for="(guesschoice, author) in guesses" :key="author">
-                        <div class="absolute top-0 left-0 w-full h-full opacity-0 z-0 group-hover:opacity-100 group-hover:z-10 transition-all px-5 py-4">
-                            <GuessSelection />
-                        </div>
-                        <div class="absolute top-0 left-0 w-full h-full opacity-100 z-10 group-hover:opacity-0 group-hover:z-0 transition-all px-5 py-4">
-                            <div class="flex flex-col justify-between">
-                                <div class="text-lg">“{{ guesschoice }}”</div>
-                                <div class="text-lg self-end">—{{ author }}</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div v-else class="flex flex-col p-4 overflow-y-hidden self-stretch w-72 h-[80vh]">
                     <transition-group
                         enter-active-class="duration-500 ease-in-out"
                         enter-from-class="opacity-0 translate-y-1/2"
@@ -551,16 +544,56 @@ export default {
                         leave-to-class="opacity-0 translate-y-1/2"
                         move-class="duration-500 ease-in-out"
                     >
-                        <div
-                            v-for="{ guess, type } in hints" :key="guess"
-                            :class="{
-                                'text-red-600': type === HintTypes.FAR,
-                                'text-green-500': type === HintTypes.CLOSE
-                            }"
-                        >
-                            {{ `'${guess}' ${type}!` }}
+                        <div class="h-28 flex flex-col border-dashed border-2 border-transparent hover:border-black bg-neutral-50 rounded-xl shadow group relative scale-95 hover:scale-100 transition-all group" v-for="(guesschoice, author) in guesses" :key="author">
+                            <div class="absolute top-0 left-0 w-full h-full opacity-0 z-0 group-hover:opacity-100 group-hover:z-10 transition-all px-5 py-4">
+                                <GuessSelection
+                                    :guess="guesschoice"
+                                    @select-winner="selectWinner(guesschoice, author.toString())" 
+                                    @provide-hint="(hintType: string) => sendHint(guesschoice, hintType, author.toString())"
+                                />
+                            </div>
+                            <div class="absolute top-0 left-0 w-full h-full opacity-100 z-10 group-hover:opacity-0 group-hover:z-0 transition-all px-5 py-4">
+                                <div class="flex flex-col justify-between h-full w-full">
+                                    <div class="text-lg">“{{ guesschoice }}”</div>
+                                    <div v-if="author === prompt.author" class="text-lg self-end text-red-800">—prompt author</div>
+                                    <div v-else class="text-lg self-end">—anonymous</div>
+                                </div>
+                            </div>
                         </div>
                     </transition-group>
+                </div>
+                <div v-else class=" w-72">
+                    <div class="w-full text-black bg-neutral-50 rounded-full shadow py-1 text-xl border-black flex justify-center mb-2">
+                        Hints:
+                    </div>
+                    <transition
+                        mode="out-in"
+                        enter-from-class="opacity-0"
+                        leave-to-class="opacity-0"
+                        enter-active-class="duration-300 ease-in-out"
+                        leave-active-class="duration-300 ease-in-out"
+                    >
+                        <div ref="hintsbox" v-if="hints.length" class="flex flex-col px-4 py-2 max-h-[80vh] overflow-y-scroll bg-neutral-50 shadow rounded-xl opacity-90">
+                            <transition-group
+                                enter-active-class="duration-500 ease-in-out"
+                                enter-from-class="opacity-0 translate-y-1/2"
+                                leave-active-class="duration-500 ease-in-out"
+                                leave-to-class="opacity-0 translate-y-1/2"
+                                move-class="duration-500 ease-in-out"
+                            >
+                                <div
+                                    v-for="{ guess, type } in hints" :key="guess"
+                                    :class="{
+                                        'text-red-800': type === HintTypes.FAR,
+                                        'text-emerald-800': type === HintTypes.CLOSE
+                                    }"
+                                    class="drop-shadow-lg"
+                                >
+                                    {{ `'${guess}' ${type}!` }}
+                                </div>
+                            </transition-group>
+                        </div>
+                    </transition>
                 </div>
                 <modal :show="roundEndModal.shown">
                     <div class="h-full flex flex-col items-center text-2xl gap-10 text-black font-normal">
@@ -601,7 +634,7 @@ export default {
                                         </transition>
                                     
                                     </div>
-                                    <div class="w-full flex justify-between">
+                                    <div v-if="roundEndModal.winner !== roundEndModal.promptAuthor" class="w-full flex justify-between">
                                         <div >{{ roundEndModal.winner }}:</div>
                                         <transition
                                             mode="out-in"
@@ -619,32 +652,34 @@ export default {
                     </div>
                 </modal>
             </div>
-            <div v-else-if="gameState === GameStates.OVER" class="bg-neutral-800 bg-opacity-80 w-3/6 text-black text-2xl flex flex-col gap-4 items-center justify-start rounded-2xl p-4 pt-12">
-                <div class="font-bold text-3xl text-white">GAME OVER</div>
-                <div class="mt-2 text-white">Here are the final scores:</div>
-                <div class="w-3/4 mt-8 border-4 border-black rounded-xl overflow-hidden">
-                    <table class="w-full">
-                        <tr class="py-10 bg-white">
-                            <th class="w-1/6 py-1"></th>
-                            <th class="py-1 border-l border-neutral-600">Player</th>
-                            <th class="w-1/6 px-3 py-1 border-l border-neutral-600">Score</th>
-                        </tr>
-                        <tr 
-                            v-for="(score, i) in finalScores" 
-                            :key="i" 
-                            class=""
-                            :class="{'bg-neutral-100': i % 2 === 0, 'bg-white': i % 2 === 1}"
-                        >
-                            <td class="text-center text-neutral-600">{{ i + 1 }}</td>
-                            <td class="text-left border-l border-neutral-600 px-4">{{ score.name }}</td>
-                            <td class="text-center border-l border-neutral-600">{{ score.score }}</td>
-                        </tr>
-                    </table>
+            <div v-else-if="gameState === GameStates.OVER" class="w-2/3 flex flex-col items-center gap-4">
+                <div class="w-full bg-white rounded-[30px] border-4 border-black shadow-[0.2rem_0.2rem_#555] text-black text-2xl flex flex-col gap-4 items-center justify-start p-4 py-12">
+                    <div class="font-bold text-3xl ">GAME OVER</div>
+                    <div class="mt-2">Here are the final scores:</div>
+                    <div class="w-3/4 mt-8 shadow rounded-xl overflow-hidden">
+                        <table class="w-full">
+                            <tr class="py-10 bg-white">
+                                <th class="w-1/6 py-1"></th>
+                                <th class="py-1 border-l border-neutral-600">Player</th>
+                                <th class="w-1/6 px-3 py-1 border-l border-neutral-600">Score</th>
+                            </tr>
+                            <tr 
+                                v-for="(score, i) in finalScores" 
+                                :key="i" 
+                                class=""
+                                :class="{'bg-neutral-100': i % 2 === 0, 'bg-white': i % 2 === 1}"
+                            >
+                                <td class="text-center text-neutral-600">{{ i + 1 }}</td>
+                                <td class="text-left border-l border-neutral-600 px-4">{{ score.name }}</td>
+                                <td class="text-center border-l border-neutral-600">{{ score.score }}</td>
+                            </tr>
+                        </table>
+                    </div>
                 </div>
-                <div v-if="admin === name" class="w-full flex justify-end">
+                <div v-if="admin === name" class="self-end">
                     <button 
                         type="button" 
-                        class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black hover:-translate-x-1 hover:-translate-y-1 transition-all"
+                        class="bg-white text-lg rounded-2xl py-2 px-4 border-4 border-black scale-95 hover:scale-100 transition-all"
                         @click="playAgain"
                     >
                         play again
